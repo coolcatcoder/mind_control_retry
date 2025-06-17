@@ -1,0 +1,30 @@
+[package]
+name = "mind_control_retry"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = { version = "0.16.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_color",
+    "bevy_core_pipeline",
+    "bevy_gilrs",
+    "bevy_gltf",
+    "bevy_log",
+    "bevy_pbr",
+    "bevy_render",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_window",
+    "bevy_winit",
+    "multi_threaded",
+    "std",
+    "sysinfo_plugin",
+    "tonemapping_luts",
+    "x11",
+    "configurable_error_handler",
+    "bevy_mesh_picking_backend"
+    ]}
+leafwing-input-manager = "0.17"
+avian3d = "0.3"
+bevy_mod_outline = "0.10.0"

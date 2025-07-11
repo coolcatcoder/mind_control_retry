@@ -3,16 +3,18 @@
 #![allow(clippy::type_complexity)]
 #![warn(clippy::unwrap_used)]
 
-use avian3d::prelude::*;
 use bevy::{ecs::error::GLOBAL_ERROR_HANDLER, prelude::*};
 
 mod controls;
 mod creatures;
 mod error_handling;
+mod interactable;
 mod lost;
 mod machines;
 mod mind_control;
+mod physics;
 mod render;
+mod sync;
 
 fn main() {
     if GLOBAL_ERROR_HANDLER
@@ -24,14 +26,15 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            PhysicsPlugins::default(),
-            PhysicsDebugPlugin::default(),
             render::plugin,
             controls::plugin,
             lost::plugin,
             creatures::plugin,
             mind_control::plugin,
             machines::plugin,
+            interactable::plugin,
+            sync::plugin,
+            physics::plugin,
         ))
         .run();
 }

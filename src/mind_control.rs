@@ -27,9 +27,11 @@ fn controlled_on_add(mut world: DeferredWorld, context: HookContext) {
 
     let mut old_entity = commands.entity(old_entity);
     old_entity.remove::<Controlled>();
-    old_entity.entry::<OutlineVolume>().and_modify(|mut outline| {
-        outline.visible = false;
-    });
+    old_entity
+        .entry::<OutlineVolume>()
+        .and_modify(|mut outline| {
+            outline.visible = false;
+        });
 
     let mut entity = commands.entity(context.entity);
     entity.entry::<OutlineVolume>().and_modify(|mut outline| {
@@ -39,10 +41,7 @@ fn controlled_on_add(mut world: DeferredWorld, context: HookContext) {
     });
 }
 
-pub fn take_control_on_click(
-    click: Trigger<Pointer<Click>>,
-    mut commands: Commands,
-) {
+pub fn take_control_on_click(click: Trigger<Pointer<Click>>, mut commands: Commands) {
     commands.entity(click.target()).insert(Controlled);
 }
 

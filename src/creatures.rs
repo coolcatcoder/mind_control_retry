@@ -83,12 +83,12 @@ fn basic_horizontal_control(
     actions: Res<Actions>,
 ) {
     for (mut velocity, control) in velocity {
-        let horizontal = Vec2::from_angle(45.0_f32.to_radians()).rotate(
-            actions
-                .clamped_axis_pair(&Action::Horizontal)
-                .normalize_or_zero()
-                * Vec2::new(1., -1.),
-        ) * control.speed;
+        //let horizontal = Vec2::from_angle(45.0_f32.to_radians()).rotate(
+        let horizontal = actions
+            .clamped_axis_pair(&Action::Horizontal)
+            .normalize_or_zero()
+            * Vec2::new(1., -1.)
+            * control.speed;
 
         if horizontal.x != 0. {
             if horizontal.x.is_sign_positive() {

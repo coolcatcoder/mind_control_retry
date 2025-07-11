@@ -1,3 +1,7 @@
 use bevy::prelude::*;
 
-pub fn plugin(_: &mut App) {}
+pub mod battery;
+
+pub fn plugin(app: &mut App) {
+    app.add_plugins(battery::plugin);
+}

@@ -1,5 +1,4 @@
 use crate::{error_handling::ToFailure, mind_control::Controlled};
-use avian3d::prelude::*;
 use bevy::prelude::*;
 use core::f32;
 
@@ -7,7 +6,7 @@ pub mod outlines;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(outlines::plugin)
-        .add_systems(Startup, (spawn_camera, spawn_map, spawn_light))
+        .add_systems(Startup, spawn_camera)
         .add_systems(
             PostUpdate,
             move_camera_to_controlled.before(TransformSystem::TransformPropagate),
@@ -27,32 +26,6 @@ pub fn spawn_camera(mut commands: Commands, mut clear_colour: ResMut<ClearColor>
         Transform::from_translation(CAMERA_OFFSET).looking_at(Vec3::ZERO, Vec3::Y),
         Camera { ..default() },
         Camera3d { ..default() },
-    ));
-}
-
-pub fn spawn_light(mut commands: Commands) {
-    commands.spawn((
-        SpotLight {
-            intensity: 40_000.0, // lumens
-            color: Color::WHITE,
-            shadows_enabled: true,
-            inner_angle: f32::consts::PI / 3.0 * 0.85,
-            outer_angle: f32::consts::PI / 3.0,
-            ..default()
-        },
-        Transform::from_xyz(0., 3., 0.).looking_at(Vec3::new(0., 0., 0.), Vec3::Y),
-    ));
-}
-
-pub fn spawn_map(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("map/tutorial_base.glb")),
-    ));
-
-    commands.spawn((
-        RigidBody::Static,
-        Collider::cuboid(200., 1., 200.),
-        Transform::from_xyz(0., -0.5, 0.),
     ));
 }
 

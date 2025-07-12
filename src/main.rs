@@ -9,6 +9,7 @@ mod controls;
 mod creatures;
 mod error_handling;
 mod interactable;
+mod areas;
 mod lost;
 mod machines;
 mod mind_control;
@@ -35,6 +36,7 @@ fn main() {
             interactable::plugin,
             sync::plugin,
             physics::plugin,
+            areas::plugin,
         ))
         .run();
 }

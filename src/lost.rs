@@ -1,5 +1,11 @@
 // TODO: Anything in here must be removed eventually.
-use crate::{creatures::tester::Tester, machines::battery::Battery, mind_control::Controlled};
+use crate::{
+    creatures::tester::Tester,
+    machines::{battery::Battery, light::LightBulb},
+    mind_control::Controlled,
+    physics::CollisionLayer,
+};
+use avian3d::prelude::CollisionLayers;
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -7,7 +13,24 @@ pub fn plugin(app: &mut App) {
 }
 
 fn testing(mut commands: Commands) {
-    commands.spawn((Tester, Controlled, Transform::from_xyz(10., 5., 0.)));
-    commands.spawn((Tester, Controlled, Transform::from_xyz(-5., 0.5, 0.)));
+    commands.spawn((
+        Tester,
+        Controlled,
+        CollisionLayers::new(
+            [CollisionLayer::Default, CollisionLayer::Floor],
+            [CollisionLayer::Default, CollisionLayer::Floor],
+        ),
+        Transform::from_xyz(10., 5., 0.),
+    ));
+    commands.spawn((
+        Tester,
+        Controlled,
+        CollisionLayers::new(
+            [CollisionLayer::Default, CollisionLayer::Floor],
+            [CollisionLayer::Default, CollisionLayer::Floor],
+        ),
+        Transform::from_xyz(-5., 0.5, 0.),
+    ));
     commands.spawn((Battery::default(), Transform::from_xyz(0., 0.5, -1.)));
+    commands.spawn((LightBulb, Transform::from_xyz(3., 0.5, 1.)));
 }

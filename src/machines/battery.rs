@@ -8,15 +8,15 @@ use bevy::{
 pub fn plugin(_: &mut App) {}
 
 #[derive(Component)]
-#[require(Interactable, Transform)]
+#[require(Interactable, Transform, RigidBody = RigidBody::Static)]
 #[component(on_add = Self::on_add)]
 pub struct Battery {
-    charge: f32,
+    charge: u8,
 }
 
 impl Default for Battery {
     fn default() -> Self {
-        Self { charge: 0.5 }
+        Self { charge: 50 }
     }
 }
 
@@ -27,11 +27,9 @@ impl Battery {
 
         let mut commands = world.commands();
 
-        commands.entity(context.entity).insert((
-            SceneRoot(scene),
-            RigidBody::Static,
-            Collider::cuboid(1., 1., 1.),
-        ));
+        commands
+            .entity(context.entity)
+            .insert((SceneRoot(scene), Collider::cuboid(1., 1., 1.)));
 
         let light = PointLight {
             intensity: 500.0, // lumens

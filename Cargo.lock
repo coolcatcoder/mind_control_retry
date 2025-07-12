@@ -265,9 +265,9 @@ checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "avian3d"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8ba10c23fee3d432f3c6cf8d036e269d952b8840c1ca4fa6a021ab926786dc4"
+checksum = "0feaf6ed522e3e55130d820bfa2a3f3395092cbee2c986cfc1a464b60b50b4ca"
 dependencies = [
  "avian_derive",
  "bevy",
@@ -818,9 +818,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_mod_outline"
-version = "0.10.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4fb205ce648281ec42dc1f82bb3143ff7c8b244974db5216bcd8c3b8a650cc6"
+checksum = "76f2e02ab0c78edf7bad91745c29ee38061e73713fce5fa6b5a3beeafffe4f5a"
 dependencies = [
  "bevy",
  "bitfield",
@@ -1549,6 +1549,12 @@ name = "const-fnv1a-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32b13ea120a812beba79e34316b3942a857c86ec1593cb34f27bb28272ce2cca"
+
+[[package]]
+name = "const-str"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e991226a70654b49d34de5ed064885f0bef0348a8e70018b8ff1ac80aa984a2"
 
 [[package]]
 name = "const_panic"
@@ -2688,6 +2694,7 @@ dependencies = [
  "avian3d",
  "bevy",
  "bevy_mod_outline",
+ "const-str",
  "leafwing-input-manager",
 ]
 

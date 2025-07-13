@@ -2,17 +2,18 @@
 #![allow(clippy::needless_pass_by_value)]
 #![allow(clippy::type_complexity)]
 #![warn(clippy::unwrap_used)]
+#![allow(clippy::needless_for_each)]
 
 use bevy::{ecs::error::GLOBAL_ERROR_HANDLER, prelude::*};
 
+mod areas;
 mod controls;
 mod creatures;
 mod error_handling;
-mod interactable;
-mod areas;
 mod lost;
 mod machines;
 mod mind_control;
+mod mouse;
 mod physics;
 mod render;
 mod sync;
@@ -33,7 +34,7 @@ fn main() {
             creatures::plugin,
             mind_control::plugin,
             machines::plugin,
-            interactable::plugin,
+            mouse::plugin,
             sync::plugin,
             physics::plugin,
             areas::plugin,

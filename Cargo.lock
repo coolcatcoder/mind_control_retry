@@ -2696,6 +2696,7 @@ dependencies = [
  "bevy_mod_outline",
  "const-str",
  "leafwing-input-manager",
+ "serde_json",
 ]
 
 [[package]]

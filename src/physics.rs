@@ -1,9 +1,14 @@
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+use crate::error_handling::{ForEachFallible, ToFailure};
+
 pub fn plugin(app: &mut App) {
-    app.add_plugins((PhysicsPlugins::default(), PhysicsDebugPlugin::default()))
-        .add_systems(Startup, create_floor);
+    app.add_plugins((PhysicsPlugins::default(), 
+    //PhysicsDebugPlugin::default()
+    ))
+        .add_systems(Startup, create_floor)
+        .add_systems(Update, load);
 }
 
 #[derive(PhysicsLayer, Default)]
@@ -23,4 +28,28 @@ fn create_floor(mut commands: Commands) {
         Collider::half_space(Vec3::Y),
         CollisionLayers::new(CollisionLayer::Floor, CollisionLayer::Floor),
     ));
+}
+
+fn load(extras: Query<(&GltfExtras, Entity), Added<GltfExtras>>, mut commands: Commands) -> Result {
+    extras.iter().for_each_fallible(|(extras, entity)| {
+        let extras_json = serde_json::from_str::<serde_json::Value>(&extras.value)
+            .else_error("Gltf extras was not json.")?;
+        let collision = extras_json
+            .get("collision")
+            .else_return()?
+            .as_bool()
+            .else_return()?;
+
+        let rigid_body = if collision {
+            RigidBody::Dynamic
+        } else {
+            RigidBody::Static
+        };
+
+        commands
+            .entity(entity)
+            .insert((rigid_body, Collider::cuboid(1., 1., 1.)));
+
+        Ok(())
+    })
 }

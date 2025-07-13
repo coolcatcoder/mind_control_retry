@@ -1,7 +1,6 @@
 use avian3d::prelude::{Collider, RigidBody, Sensor};
 use bevy::{
-    ecs::{component::HookContext, world::DeferredWorld},
-    prelude::*,
+    ecs::{component::HookContext, world::DeferredWorld}, pbr::NotShadowCaster, prelude::*
 };
 
 pub fn plugin(_: &mut App) {}
@@ -13,13 +12,14 @@ pub struct LightBulb;
 
 impl LightBulb {
     fn on_add(mut world: DeferredWorld, context: HookContext) {
-        //let asset_server = world.resource::<AssetServer>();
-        //let scene = asset_server.load("machines/battery.glb#Scene0");
+        let asset_server = world.resource::<AssetServer>();
+        let scene = asset_server.load("machines/light.glb#Scene0");
 
         let mut commands = world.commands();
 
         commands.entity(context.entity).insert((
-            //SceneRoot(scene),
+            NotShadowCaster,
+            SceneRoot(scene),
             Collider::cuboid(1., 1., 1.),
             PointLight {
                 intensity: 100_000.0,

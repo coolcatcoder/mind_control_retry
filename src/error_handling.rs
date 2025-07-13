@@ -20,6 +20,10 @@ pub enum Failure {
     Return,
     Warn(String),
     Error(String),
+    ForEachFallible {
+        warn: Vec<String>,
+        error: Vec<String>,
+    },
 }
 
 impl Failure {
@@ -38,6 +42,25 @@ impl Failure {
                 context.name(),
                 error
             ),
+            Self::ForEachFallible { warn, error } => {
+                warn.iter().for_each(|warn| {
+                    warn!(
+                        "Warning in {} `{}`: {}",
+                        context.kind(),
+                        context.name(),
+                        warn
+                    );
+                });
+
+                error.iter().for_each(|error| {
+                    error!(
+                        "Error in {} `{}`: {}",
+                        context.kind(),
+                        context.name(),
+                        error
+                    );
+                });
+            }
         }
     }
 }
@@ -48,6 +71,7 @@ impl std::fmt::Display for Failure {
             Self::Return => write!(f, "Return"),
             Self::Warn(warn) => write!(f, "Warn: {warn}"),
             Self::Error(error) => write!(f, "Error: {error}"),
+            Self::ForEachFallible { warn, error } => write!(f, "Warn: {warn:?}\nError: {error:?}"),
         }
     }
 }
@@ -92,3 +116,40 @@ impl<T, E: Debug> ToFailure for Result<T, E> {
         }
     }
 }
+
+pub trait ForEachFallible: Iterator {
+    #[inline]
+    fn for_each_fallible<F>(self, f: F) -> Result
+    where
+        Self: Sized,
+        F: FnMut(Self::Item) -> Result<(), Failure>,
+    {
+        #[inline]
+        fn call<T>(
+            mut f: impl FnMut(T) -> Result<(), Failure>,
+        ) -> impl FnMut((Vec<String>, Vec<String>), T) -> (Vec<String>, Vec<String>) {
+            move |mut storage, item| {
+                match f(item) {
+                    Err(Failure::Warn(warn)) => storage.0.push(warn),
+                    Err(Failure::Error(error)) => storage.1.push(error),
+                    _ => (),
+                }
+                storage
+            }
+        }
+
+        let storage = self.fold((vec![], vec![]), call(f));
+
+        if storage.0.is_empty() && storage.1.is_empty() {
+            Ok(())
+        } else {
+            Err(Failure::ForEachFallible {
+                warn: storage.0,
+                error: storage.1,
+            }
+            .into())
+        }
+    }
+}
+
+impl<T: Iterator> ForEachFallible for T {}

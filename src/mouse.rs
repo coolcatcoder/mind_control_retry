@@ -1,4 +1,5 @@
 use crate::error_handling::ToFailure;
+use avian3d::prelude::LinearVelocity;
 use bevy::{
     ecs::{component::HookContext, world::DeferredWorld},
     prelude::*,
@@ -46,5 +47,15 @@ pub fn remove_outline_on_out(
     mut outline: Query<&mut OutlineVolume, With<Interactable>>,
 ) -> Result {
     outline.get_mut(out.target()).else_return()?.visible = false;
+    Ok(())
+}
+
+pub fn drag(drag: Trigger<Pointer<Drag>>, mut velocity: Query<&mut LinearVelocity>) -> Result {
+    let mut velocity = velocity
+        .get_mut(drag.target())
+        .else_error("No linear velocity when dragging entity.")?;
+    let drag_delta = drag.delta * 0.1;
+    velocity.x += drag_delta.x;
+    velocity.z += drag_delta.y;
     Ok(())
 }

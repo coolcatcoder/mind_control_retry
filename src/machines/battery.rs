@@ -1,11 +1,17 @@
-use crate::{interactable::Interactable, sync::SyncTranslation};
+use crate::{
+    error_handling::{ForEachFallible, ToFailure},
+    mouse::Interactable,
+    sync::SyncTranslation,
+};
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
     ecs::{component::HookContext, world::DeferredWorld},
     prelude::*,
 };
 
-pub fn plugin(_: &mut App) {}
+pub fn plugin(app: &mut App) {
+    app.add_systems(Update, load);
+}
 
 #[derive(Component)]
 #[require(Interactable, Transform, RigidBody = RigidBody::Static)]
@@ -63,4 +69,25 @@ impl Battery {
             },
         ));
     }
+}
+
+fn load(extras: Query<(&GltfExtras, Entity), Added<GltfExtras>>, mut commands: Commands) -> Result {
+    extras.iter().for_each_fallible(|(extras, entity)| {
+        let extras_json = serde_json::from_str::<serde_json::Value>(&extras.value)
+            .else_error("Gltf extras was not json.")?;
+        let charge = u8::try_from(
+            extras_json
+                .get("battery")
+                .else_return()?
+                .as_u64()
+                .else_return()?,
+        )
+        .else_error("Too much charge in battery.")?;
+
+        info!("Spawned battery with charge: {charge}");
+
+        commands.entity(entity).insert(Battery { charge });
+
+        Ok(())
+    })
 }

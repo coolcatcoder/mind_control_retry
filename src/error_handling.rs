@@ -82,6 +82,7 @@ pub trait ToFailure {
     type Inner;
 
     fn else_return(self) -> Result<Self::Inner, Failure>;
+    fn else_warn(self, warn: impl ToString) -> Result<Self::Inner, Failure>;
     fn else_error(self, error: impl ToString) -> Result<Self::Inner, Failure>;
 }
 
@@ -90,6 +91,9 @@ impl<T> ToFailure for Option<T> {
 
     fn else_return(self) -> Result<Self::Inner, Failure> {
         self.ok_or(Failure::Return)
+    }
+    fn else_warn(self, warn: impl ToString) -> Result<Self::Inner, Failure> {
+        self.ok_or(Failure::Warn(warn.to_string()))
     }
     fn else_error(self, error: impl ToString) -> Result<Self::Inner, Failure> {
         self.ok_or(Failure::Error(error.to_string()))
@@ -103,6 +107,16 @@ impl<T, E: Debug> ToFailure for Result<T, E> {
         match self {
             Ok(value) => Ok(value),
             Err(_) => Err(Failure::Return),
+        }
+    }
+    fn else_warn(self, warn: impl ToString) -> Result<Self::Inner, Failure> {
+        match self {
+            Ok(value) => Ok(value),
+            Err(result_warn) => Err(Failure::Warn(format!(
+                "{}\n{:?}",
+                warn.to_string(),
+                result_warn
+            ))),
         }
     }
     fn else_error(self, error: impl ToString) -> Result<Self::Inner, Failure> {

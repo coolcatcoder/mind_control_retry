@@ -4,11 +4,12 @@ use bevy::prelude::*;
 use crate::error_handling::{ForEachFallible, ToFailure};
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins((PhysicsPlugins::default(), 
-    //PhysicsDebugPlugin::default()
+    app.add_plugins((
+        PhysicsPlugins::default(),
+        //PhysicsDebugPlugin::default()
     ))
-        .add_systems(Startup, create_floor)
-        .add_systems(Update, load);
+    .add_systems(Startup, create_floor)
+    .add_systems(Update, load);
 }
 
 #[derive(PhysicsLayer, Default)]

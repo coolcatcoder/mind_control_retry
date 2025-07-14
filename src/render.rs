@@ -1,19 +1,24 @@
-use crate::{error_handling::ToFailure, mind_control::Controlled, propagate::HierarchyPropagatePlugin};
+use crate::{
+    error_handling::ToFailure, mind_control::Controlled, propagate::HierarchyPropagatePlugin,
+};
 use bevy::{pbr::NotShadowCaster, prelude::*};
 
 pub mod outlines;
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins((outlines::plugin, HierarchyPropagatePlugin::<SceneNotShadowCaster>::default()))
-        .add_systems(Startup, spawn_camera)
-        .add_systems(
-            PostUpdate,
-            move_camera_to_controlled.before(TransformSystem::TransformPropagate),
-        )
-        .insert_resource(AmbientLight {
-            brightness: 0.0,
-            ..default()
-        });
+    app.add_plugins((
+        outlines::plugin,
+        HierarchyPropagatePlugin::<SceneNotShadowCaster>::default(),
+    ))
+    .add_systems(Startup, spawn_camera)
+    .add_systems(
+        PostUpdate,
+        move_camera_to_controlled.before(TransformSystem::TransformPropagate),
+    )
+    .insert_resource(AmbientLight {
+        brightness: 0.0,
+        ..default()
+    });
 }
 
 /// Stops a gltf scene from casting shadows.

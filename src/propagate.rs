@@ -3,7 +3,14 @@ use core::marker::PhantomData;
 
 use crate::{App, Plugin, Update};
 use bevy::ecs::{
-    component::Component, entity::Entity, hierarchy::ChildOf, query::{Changed, Or, QueryFilter, With, Without}, relationship::{Relationship, RelationshipTarget}, removal_detection::RemovedComponents, schedule::{IntoScheduleConfigs, SystemSet}, system::{Commands, Local, Query}
+    component::Component,
+    entity::Entity,
+    hierarchy::ChildOf,
+    query::{Changed, Or, QueryFilter, With, Without},
+    relationship::{Relationship, RelationshipTarget},
+    removal_detection::RemovedComponents,
+    schedule::{IntoScheduleConfigs, SystemSet},
+    system::{Commands, Local, Query},
 };
 
 /// Plugin to automatically propagate a component value to all direct and transient relationship
@@ -90,9 +97,7 @@ impl<C: Component + Clone + PartialEq> core::hash::Hash for PropagateSet<C> {
 
 impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
     fn default() -> Self {
-        Self {
-            _p: PhantomData,
-        }
+        Self { _p: PhantomData }
     }
 }
 

@@ -1,6 +1,7 @@
 use avian3d::prelude::{Collider, RigidBody, Sensor};
 use bevy::{
-    ecs::{component::HookContext, world::DeferredWorld}, prelude::*
+    ecs::{component::HookContext, world::DeferredWorld},
+    prelude::*,
 };
 
 use crate::{propagate::Propagate, render::SceneNotShadowCaster};

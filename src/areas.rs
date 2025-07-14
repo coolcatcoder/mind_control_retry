@@ -49,7 +49,7 @@ fn on_enter(
     mut collisions_started: EventReader<CollisionStarted>,
 ) -> Result {
     for CollisionStarted(entity_1, entity_2) in collisions_started.read() {
-        let (area, collider) = match (areas.get(*entity_1), areas.get(*entity_2)) {
+        let (_, collider) = match (areas.get(*entity_1), areas.get(*entity_2)) {
             (Ok(()), Err(_)) => (*entity_1, *entity_2),
             (Err(_), Ok(())) => (*entity_2, *entity_1),
             _ => continue,
@@ -68,7 +68,7 @@ fn on_exit(
     mut collisions_ended: EventReader<CollisionEnded>,
 ) -> Result {
     for CollisionEnded(entity_1, entity_2) in collisions_ended.read() {
-        let (area, collider) = match (areas.get(*entity_1), areas.get(*entity_2)) {
+        let (_, collider) = match (areas.get(*entity_1), areas.get(*entity_2)) {
             (Ok(()), Err(_)) => (*entity_1, *entity_2),
             (Err(_), Ok(())) => (*entity_2, *entity_1),
             _ => continue,

@@ -1,11 +1,10 @@
-use crate::{error_handling::ToFailure, mind_control::Controlled};
-use bevy::prelude::*;
-use core::f32;
+use crate::{error_handling::ToFailure, mind_control::Controlled, propagate::HierarchyPropagatePlugin};
+use bevy::{pbr::NotShadowCaster, prelude::*};
 
 pub mod outlines;
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins(outlines::plugin)
+    app.add_plugins((outlines::plugin, HierarchyPropagatePlugin::<SceneNotShadowCaster>::default()))
         .add_systems(Startup, spawn_camera)
         .add_systems(
             PostUpdate,
@@ -17,7 +16,12 @@ pub fn plugin(app: &mut App) {
         });
 }
 
-/// No one fully understands this. Be careful.
+/// Stops a gltf scene from casting shadows.
+#[derive(PartialEq, Clone, Component)]
+#[require(NotShadowCaster)]
+pub struct SceneNotShadowCaster;
+
+/// Camera's offset from the controlled character.
 const CAMERA_OFFSET: Vec3 = Vec3::new(0., 10., 13.);
 
 pub fn spawn_camera(mut commands: Commands, mut clear_colour: ResMut<ClearColor>) {

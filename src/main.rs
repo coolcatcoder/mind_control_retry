@@ -17,6 +17,7 @@ mod mouse;
 mod physics;
 mod render;
 mod sync;
+mod propagate;
 
 fn main() {
     if GLOBAL_ERROR_HANDLER

@@ -1,7 +1,9 @@
 use avian3d::prelude::{Collider, RigidBody, Sensor};
 use bevy::{
-    ecs::{component::HookContext, world::DeferredWorld}, pbr::NotShadowCaster, prelude::*
+    ecs::{component::HookContext, world::DeferredWorld}, prelude::*
 };
+
+use crate::{propagate::Propagate, render::SceneNotShadowCaster};
 
 pub fn plugin(_: &mut App) {}
 
@@ -18,7 +20,7 @@ impl LightBulb {
         let mut commands = world.commands();
 
         commands.entity(context.entity).insert((
-            NotShadowCaster,
+            Propagate(SceneNotShadowCaster),
             SceneRoot(scene),
             Collider::cuboid(1., 1., 1.),
             PointLight {

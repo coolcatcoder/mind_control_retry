@@ -3,6 +3,7 @@
 #![allow(clippy::type_complexity)]
 #![warn(clippy::unwrap_used)]
 #![allow(clippy::needless_for_each)]
+#![allow(clippy::too_many_arguments)]
 
 use bevy::{ecs::error::GLOBAL_ERROR_HANDLER, prelude::*};
 

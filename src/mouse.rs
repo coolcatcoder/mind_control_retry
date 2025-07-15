@@ -1,4 +1,4 @@
-use crate::error_handling::ToFailure;
+use crate::{error_handling::ToFailure, render::ComesFromRootEntity};
 use avian3d::prelude::LinearVelocity;
 use bevy::{
     ecs::{component::HookContext, world::DeferredWorld},
@@ -52,13 +52,14 @@ pub fn remove_outline_on_out(
 
 pub fn drag(
     drag: Trigger<Pointer<Drag>>,
-    mut velocity: Query<(&mut LinearVelocity, &Transform, &Children)>,
+    mut velocity: Query<(&mut LinearVelocity, &Transform)>,
     camera: Query<(&Camera, &GlobalTransform)>,
     window: Query<&Window>,
     mut ray_cast: MeshRayCast,
     time: Res<Time>,
+    comes_from_root_entity: Query<&ComesFromRootEntity>,
 ) -> Result {
-    let (mut velocity, transform, children) = velocity
+    let (mut velocity, transform) = velocity
         .get_mut(drag.target())
         .else_error("No linear velocity when dragging entity.")?;
 
@@ -67,37 +68,41 @@ pub fn drag(
     let window = window.single().else_error("Not a single window.")?;
     let cursor_translation = window
         .cursor_position()
-        .else_error("Dragging not on screen?")?;
+        .else_return()?;
 
     let (camera, camera_transform) = camera.single().else_error("Not a single camera.")?;
     let cursor_ray = camera
         .viewport_to_world(camera_transform, cursor_translation)
         .else_error("Viewport to world failed.")?;
 
-    let (entity, hit) = ray_cast
+    let (_, hit) = ray_cast
         .cast_ray(
             cursor_ray,
             &MeshRayCastSettings {
                 visibility: RayCastVisibility::VisibleInView,
-                early_exit_test: &|entity| entity != target && !children.contains(&entity),
-                filter: &|entity| entity != target && !children.contains(&entity),
+                filter: &|entity| {
+                    if entity == target {
+                        return false;
+                    }
+                    let Ok(comes_from_root_entity) = comes_from_root_entity.get(entity) else {
+                        return true;
+                    };
+
+                    comes_from_root_entity.0 != target
+                },
+                ..default()
             },
         )
         .first()
-        .else_warn("I need to handle hitting nothing!")?;
+        .else_return()?;
 
-    info!("entity: {}", entity);
-    info!("entity: {target}");
-    info!("hit translation: {}", hit.point);
     let cursor_translation = hit.point;
+    let desired_translation = cursor_translation + Vec3::new(0., 1., 0.);
 
-    let displacement = cursor_translation - transform.translation;
+    let displacement = desired_translation - transform.translation;
     let time = time.delta_secs();
     **velocity = displacement * time * 1000.;
     **velocity = velocity.min(Vec3::splat(10.));
-
-    info!("displacement: {displacement}");
-    info!("velocity: {}", **velocity);
 
     Ok(())
 }

@@ -1,7 +1,5 @@
 use crate::{
-    error_handling::{ForEachFallible, ToFailure},
-    mouse::Interactable,
-    sync::SyncTranslation,
+    error_handling::{ForEachFallible, ToFailure}, mouse::Interactable, propagate::Propagate, render::ComesFromRootEntity, sync::SyncTranslation
 };
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
@@ -26,16 +24,19 @@ impl Default for Battery {
     }
 }
 
+#[derive(Component)]
+pub struct BatteryLights {
+    top: Entity,
+    middle: Entity,
+    bottom: Entity,
+}
+
 impl Battery {
     fn on_add(mut world: DeferredWorld, context: HookContext) {
         let asset_server = world.resource::<AssetServer>();
         let scene = asset_server.load("machines/battery.glb#Scene0");
 
         let mut commands = world.commands();
-
-        commands
-            .entity(context.entity)
-            .insert((SceneRoot(scene), Collider::cuboid(1., 1., 1.)));
 
         let light = PointLight {
             intensity: 500.0, // lumens
@@ -45,28 +46,45 @@ impl Battery {
             ..default()
         };
 
-        commands.spawn((
-            light,
-            SyncTranslation {
-                target: context.entity,
-                offset: Vec3::new(0., 1. / 3., 0.4),
-            },
-        ));
+        let top = commands
+            .spawn((
+                light,
+                SyncTranslation {
+                    target: context.entity,
+                    offset: Vec3::new(0., 1. / 3., 0.4),
+                },
+            ))
+            .id();
 
-        commands.spawn((
-            light,
-            SyncTranslation {
-                target: context.entity,
-                offset: Vec3::new(0., 0., 0.4),
-            },
-        ));
+        let middle = commands
+            .spawn((
+                light,
+                SyncTranslation {
+                    target: context.entity,
+                    offset: Vec3::new(0., 0., 0.4),
+                },
+            ))
+            .id();
 
-        commands.spawn((
-            light,
-            SyncTranslation {
-                target: context.entity,
-                offset: Vec3::new(0., -(1. / 3.), 0.4),
+        let bottom = commands
+            .spawn((
+                light,
+                SyncTranslation {
+                    target: context.entity,
+                    offset: Vec3::new(0., -(1. / 3.), 0.4),
+                },
+            ))
+            .id();
+
+        commands.entity(context.entity).insert((
+            BatteryLights {
+                top,
+                middle,
+                bottom,
             },
+            SceneRoot(scene),
+            Propagate(ComesFromRootEntity(context.entity)),
+            Collider::cuboid(1., 1., 1.),
         ));
     }
 }

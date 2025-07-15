@@ -9,6 +9,7 @@ pub fn plugin(app: &mut App) {
     app.add_plugins((
         outlines::plugin,
         HierarchyPropagatePlugin::<SceneNotShadowCaster>::default(),
+        HierarchyPropagatePlugin::<ComesFromRootEntity>::default(),
     ))
     .add_systems(Startup, spawn_camera)
     .add_systems(
@@ -25,6 +26,9 @@ pub fn plugin(app: &mut App) {
 #[derive(PartialEq, Clone, Component)]
 #[require(NotShadowCaster)]
 pub struct SceneNotShadowCaster;
+
+#[derive(PartialEq, Clone, Component)]
+pub struct ComesFromRootEntity(pub Entity);
 
 /// Camera's offset from the controlled character.
 const CAMERA_OFFSET: Vec3 = Vec3::new(0., 10., 13.);

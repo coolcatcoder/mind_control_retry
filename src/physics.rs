@@ -1,15 +1,16 @@
+use crate::error_handling::{ForEachFallible, ToFailure};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::error_handling::{ForEachFallible, ToFailure};
+const DEBUG: bool = true;
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins((
-        PhysicsPlugins::default(),
-        //PhysicsDebugPlugin::default()
-    ))
-    .add_systems(Startup, create_floor)
-    .add_systems(Update, load);
+    if DEBUG {
+        app.add_plugins(PhysicsDebugPlugin::default());
+    }
+    app.add_plugins(PhysicsPlugins::default())
+        .add_systems(Startup, create_floor)
+        .add_systems(Update, load);
 }
 
 #[derive(PhysicsLayer, Default)]
@@ -17,6 +18,7 @@ pub enum CollisionLayer {
     #[default]
     Default,
     Floor,
+    Cable,
 }
 
 #[derive(Component)]

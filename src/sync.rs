@@ -4,7 +4,9 @@ use bevy::prelude::*;
 pub fn plugin(app: &mut App) {
     app.add_systems(
         PostUpdate,
-        sync_translation.before(TransformSystem::TransformPropagate),
+        (sync_rotation, sync_translation)
+            .chain()
+            .before(TransformSystem::TransformPropagate),
     );
 }
 
@@ -24,6 +26,25 @@ fn sync_translation(
     for (sync, mut transform) in sync {
         let target = target.get(sync.target).else_return()?;
         transform.translation = target.translation + sync.offset;
+    }
+    Ok(())
+}
+
+/// Syncs a rotation to another entity, if it exists and has the component.
+/// Will not sync to a rotation which is also syncing.
+#[derive(Component)]
+#[require(Transform)]
+pub struct SyncRotation {
+    pub target: Entity,
+}
+
+fn sync_rotation(
+    sync: Query<(&SyncRotation, &mut Transform)>,
+    target: Query<&Transform, Without<SyncRotation>>,
+) -> Result {
+    for (sync, mut transform) in sync {
+        let target = target.get(sync.target).else_return()?;
+        transform.rotation = target.rotation;
     }
     Ok(())
 }

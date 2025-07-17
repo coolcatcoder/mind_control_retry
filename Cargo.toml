@@ -23,10 +23,46 @@ bevy = { version = "0.16.1", default-features = false, features = [
     "tonemapping_luts",
     "x11",
     "configurable_error_handler",
-    "bevy_mesh_picking_backend"
+    "bevy_mesh_picking_backend",
+    "bevy_dev_tools",
+    "default_font"
     ]}
 leafwing-input-manager = "0.17"
 avian3d = "0.3.1"
 bevy_mod_outline = "0.10.2"
 const-str = "0.6.3"
 serde_json = "1.0.140"
+
+[profile.dev.package.bevy]
+hint-mostly-unused = true
+
+[profile.release.package.bevy]
+hint-mostly-unused = true
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable more optimization in the release profile at the cost of compile time.
+[profile.release]
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
+lto = "thin"
+
+# Optimize for size in the wasm-release profile to reduce load times and bandwidth usage on web.
+[profile.wasm-release]
+# Default to release profile values.
+inherits = "release"
+# Optimize with size in mind (also try "z", sometimes it is better).
+# Slightly slows compile times, great improvements to file size and runtime performance.
+opt-level = "s"
+# Strip all debugging information from the binary to slightly reduce file size.
+strip = "debuginfo"
+

@@ -66,9 +66,7 @@ pub fn drag(
     let target = drag.target();
 
     let window = window.single().else_error("Not a single window.")?;
-    let cursor_translation = window
-        .cursor_position()
-        .else_return()?;
+    let cursor_translation = window.cursor_position().else_return()?;
 
     let (camera, camera_transform) = camera.single().else_error("Not a single camera.")?;
     let cursor_ray = camera

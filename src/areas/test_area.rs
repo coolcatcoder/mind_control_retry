@@ -1,7 +1,7 @@
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
-use crate::{areas::LoadArea, machines::{battery::Battery, light::LightBulb}, mouse::drag};
+use crate::{areas::LoadArea, instantiate::Instantiate, machines::{battery::Battery, cable::CableConfig, light::LightBulb}, mouse::drag};
 
 pub fn plugin(_: &mut App) {}
 
@@ -14,4 +14,19 @@ pub fn load(commands: &mut Commands) {
 
     commands.spawn((Battery::default(), RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.))).observe(drag);
     commands.spawn((LightBulb, Transform::from_xyz(3., 0.5, 1.)));
+
+    // Cable test.
+    commands.instantiate(CableConfig {
+        transform: Transform::from_xyz(0., 5., 0.),
+        length: 100,
+    });
+
+    commands.instantiate(CableConfig {
+        transform: Transform::from_xyz(-10., 5., 3.),
+        length: 100,
+    });
+    commands.instantiate(CableConfig {
+        transform: Transform::from_xyz(-10., 7., 2.),
+        length: 100,
+    });
 }

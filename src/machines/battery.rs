@@ -1,5 +1,10 @@
 use crate::{
-    error_handling::{ForEachFallible, ToFailure}, mouse::Interactable, propagate::Propagate, render::ComesFromRootEntity, sync::SyncTranslation
+    error_handling::{ForEachFallible, ToFailure},
+    machines::outlet::OutletSensor,
+    mouse::Interactable,
+    propagate::Propagate,
+    render::ComesFromRootEntity,
+    sync::{SyncRotation, SyncTranslation},
 };
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::{
@@ -37,6 +42,23 @@ impl Battery {
         let scene = asset_server.load("machines/battery.glb#Scene0");
 
         let mut commands = world.commands();
+
+        // outlet connected
+        commands.spawn((
+            OutletSensor {
+                root: context.entity,
+                rest_length: 1.,
+                plug: None,
+            },
+            Collider::cuboid(2., 2., 2.),
+            SyncTranslation {
+                target: context.entity,
+                offset: Vec3::ZERO,
+            },
+            SyncRotation {
+                target: context.entity,
+            },
+        ));
 
         let light = PointLight {
             intensity: 500.0, // lumens

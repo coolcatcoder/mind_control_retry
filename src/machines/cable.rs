@@ -45,6 +45,7 @@ impl Config for CableConfig {
         );
 
         let head_joint = commands.spawn_empty().id();
+        let tail = commands.spawn_empty().id();
 
         let head = commands
             .entity(root_entity)
@@ -54,6 +55,7 @@ impl Config for CableConfig {
                     dragged: false,
                     outlet_sensor_connected_to: None,
                     joint: head_joint,
+                    other_end: tail,
                 },
                 RigidBody::Dynamic,
                 MassPropertiesBundle::from_shape(&Cuboid::new(0.8, 0.4, 0.8), Self::PLUG_DENSITY),
@@ -134,12 +136,14 @@ impl Config for CableConfig {
         let mut tail_transform = transform;
         tail_transform.translation.x += f32::from(self.length - 1) * Self::CABLE_RADIUS * 2.;
         let tail = commands
-            .spawn((
+            .entity(tail)
+            .insert((
                 Plug {
                     outlet_sensors_within_range: vec![],
                     dragged: false,
                     outlet_sensor_connected_to: None,
                     joint: tail_joint,
+                    other_end: head,
                 },
                 RigidBody::Dynamic,
                 MassPropertiesBundle::from_shape(&Cuboid::new(0.8, 0.4, 0.8), Self::PLUG_DENSITY),
@@ -172,6 +176,7 @@ pub struct Plug {
     pub dragged: bool,
     pub outlet_sensor_connected_to: Option<Entity>,
     pub joint: Entity,
+    pub other_end: Entity,
 }
 
 pub fn drag_start(

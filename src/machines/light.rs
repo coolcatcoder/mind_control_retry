@@ -7,7 +7,7 @@ use bevy::{
 };
 
 use crate::{
-    machines::outlet::OutletSensor,
+    machines::{outlet::OutletSensor, power::TakesPower},
     propagate::Propagate,
     render::SceneNotShadowCaster,
     sync::{SyncRotation, SyncTranslation},
@@ -55,6 +55,7 @@ impl LightBulb {
                 shadows_enabled: true,
                 ..default()
             },
+            TakesPower(1),
         ));
     }
 }

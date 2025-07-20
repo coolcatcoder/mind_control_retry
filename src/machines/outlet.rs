@@ -13,6 +13,9 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component)]
+pub struct OutletSensorEntity(pub Entity);
+
+#[derive(Component)]
 #[require(Sensor, CollisionEventsEnabled)]
 pub struct OutletSensor {
     pub root: Entity,

@@ -1,7 +1,10 @@
 use crate::{
     error_handling::{ForEachFallible, ToFailure},
     instantiate::{Config, InstantiateInto},
-    machines::outlet::OutletSensor,
+    machines::{
+        outlet::{OutletSensor, OutletSensorEntity},
+        power::Energy,
+    },
     mouse::Interactable,
     propagate::Propagate,
     render::ComesFromRootEntity,
@@ -11,7 +14,7 @@ use avian3d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, load);
+    app.add_systems(Update, (load, charge_indicator));
 }
 
 pub struct BatteryConfig {
@@ -99,10 +102,9 @@ impl Config for BatteryConfig {
             SceneRoot(scene),
             Propagate(ComesFromRootEntity(root_entity)),
             Collider::cuboid(1., 1., 1.),
-            Battery {
-                charge: self.charge,
-                outlet_sensor_entity,
-            },
+            Battery,
+            OutletSensorEntity(outlet_sensor_entity),
+            Energy(self.charge),
         ));
 
         Ok(())
@@ -111,10 +113,7 @@ impl Config for BatteryConfig {
 
 #[derive(Component)]
 #[require(Interactable, Transform, RigidBody = RigidBody::Static)]
-pub struct Battery {
-    charge: u8,
-    outlet_sensor_entity: Entity,
-}
+pub struct Battery;
 
 #[derive(Component)]
 pub struct BatteryLights {
@@ -146,6 +145,40 @@ fn load(extras: Query<(&GltfExtras, Entity), Added<GltfExtras>>, mut commands: C
     })
 }
 
-fn drain(mut battery: Query<&mut Battery>) {
-    battery.iter_mut().for_each(|battery| {});
+fn charge_indicator(
+    mut battery: Query<(&Energy, &BatteryLights)>,
+    mut visibility: Query<&mut Visibility>,
+) -> Result {
+    battery
+        .iter_mut()
+        .for_each_fallible(|(energy, battery_lights)| {
+            let mut top_visibility = visibility
+                .get_mut(battery_lights.top)
+                .else_error("No visibility on light.")?;
+            *top_visibility = if energy.0 >= 66 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+
+            let mut middle_visibility = visibility
+                .get_mut(battery_lights.middle)
+                .else_error("No visibility on light.")?;
+            *middle_visibility = if energy.0 >= 33 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+
+            let mut bottom_visibility = visibility
+                .get_mut(battery_lights.bottom)
+                .else_error("No visibility on light.")?;
+            *bottom_visibility = if energy.0 > 0 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+
+            Ok(())
+        })
 }

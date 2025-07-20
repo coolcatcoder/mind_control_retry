@@ -2,7 +2,7 @@ use crate::error_handling::{ForEachFallible, ToFailure};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-const DEBUG: bool = false;
+const DEBUG: bool = true;
 
 pub fn plugin(app: &mut App) {
     if DEBUG {

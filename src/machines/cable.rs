@@ -26,6 +26,8 @@ impl CableConfig {
     const CABLE_RADIUS: f32 = 0.25 * 0.5;
     const CABLE_DENSITY: f32 = 10.;
     const CABLE_COMPLIANCE: f32 = 0.01;
+
+    const MAX_DISTANCE: f32 = 0.2;
 }
 
 impl Config for CableConfig {
@@ -88,15 +90,16 @@ impl Config for CableConfig {
                 previous_transform,
             ))
             .id();
-
-        // TODO: Add distance joint with 0 compliance, that allows from 0 to
-        // Self::CABLE_RADIUS * 2 * 2 distance.
-        if false {}
+        
         commands.spawn(
             SphericalJoint::new(head, previous)
                 .with_local_anchor_1(Vec3::NEG_Y * 0.2)
                 .with_local_anchor_2(Vec3::Y * Self::CABLE_RADIUS)
                 .with_compliance(Self::PLUG_COMPLIANCE),
+        );
+        commands.spawn(
+            DistanceJoint::new(head, previous)
+                .with_limits(0., Self::CABLE_RADIUS + 0.2 + Self::MAX_DISTANCE),
         );
 
         for i in 1..self.length {
@@ -129,6 +132,10 @@ impl Config for CableConfig {
                     .with_local_anchor_2(Vec3::Y * Self::CABLE_RADIUS)
                     .with_compliance(Self::CABLE_COMPLIANCE),
             );
+            commands.spawn(
+                DistanceJoint::new(previous, current)
+                    .with_limits(0., Self::CABLE_RADIUS * 2. + Self::MAX_DISTANCE),
+            );
 
             previous = current;
         }
@@ -141,7 +148,7 @@ impl Config for CableConfig {
         if let Some(tail_translation) = self.force_other_head {
             tail_transform.translation = tail_translation;
         }
-        
+
         let tail = commands
             .entity(tail)
             .insert((
@@ -171,6 +178,10 @@ impl Config for CableConfig {
                 .with_local_anchor_1(Vec3::Y * Self::CABLE_RADIUS)
                 .with_local_anchor_2(Vec3::NEG_Y * 0.2)
                 .with_compliance(Self::PLUG_COMPLIANCE),
+        );
+        commands.spawn(
+            DistanceJoint::new(previous, tail)
+                .with_limits(0., Self::CABLE_RADIUS + 0.2 + Self::MAX_DISTANCE),
         );
 
         Ok(())

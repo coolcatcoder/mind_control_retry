@@ -30,14 +30,18 @@ pub fn load(commands: &mut Commands) {
         .observe(drag)
         .instantiate(BatteryConfig { charge: 50 });
     commands
-        .spawn((LightBulb, Transform::from_xyz(3., 0.5, 4.)));
+        .spawn((RigidBody::Dynamic, Transform::from_xyz(-5., 0.5, 0.)))
+        .observe(drag)
+        .instantiate(BatteryConfig { charge: 50 });
+    commands.spawn((LightBulb, Transform::from_xyz(3., 0.5, 4.)));
 
     // Cable testing.
     commands
         .spawn(Transform::from_xyz(0., 1., -1.))
         .instantiate(CableConfig {
-            length: 100,
-            force_other_head: Some(Vec3::new(3., 1., 4.)),
+            length: 20,
+            force_other_head: None,
+            //force_other_head: Some(Vec3::new(3., 1., 4.)),
         });
 
     // commands

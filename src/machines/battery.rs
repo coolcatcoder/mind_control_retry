@@ -10,7 +10,7 @@ use crate::{
     render::ComesFromRootEntity,
     sync::{SyncRotation, SyncTranslation},
 };
-use avian3d::prelude::{Collider, RigidBody};
+use avian3d::prelude::{Collider, MassPropertiesBundle, RigidBody};
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -101,6 +101,7 @@ impl Config for BatteryConfig {
             },
             SceneRoot(scene),
             Propagate(ComesFromRootEntity(root_entity)),
+            MassPropertiesBundle::from_shape(&Cuboid::new(1., 1., 1.), 10.),
             Collider::cuboid(1., 1., 1.),
             Battery,
             OutletSensorEntity(outlet_sensor_entity),

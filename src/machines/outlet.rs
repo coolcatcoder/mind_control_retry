@@ -115,7 +115,7 @@ fn connect(
             commands.entity(plug.joint).insert(
                 DistanceJoint::new(outlet_sensor.root, plug_entity)
                     .with_rest_length(outlet_sensor.rest_length)
-                    .with_compliance(0.0025),
+                    .with_compliance(0.),
             );
             info!("Connected!");
 

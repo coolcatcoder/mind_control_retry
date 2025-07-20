@@ -1,5 +1,6 @@
 use crate::{
     error_handling::{ForEachFallible, ToFailure},
+    instantiate::{Config, InstantiateInto},
     machines::outlet::OutletSensor,
     mouse::Interactable,
     propagate::Propagate,
@@ -7,58 +8,47 @@ use crate::{
     sync::{SyncRotation, SyncTranslation},
 };
 use avian3d::prelude::{Collider, RigidBody};
-use bevy::{
-    ecs::{component::HookContext, world::DeferredWorld},
-    prelude::*,
-};
+use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, load);
 }
 
-#[derive(Component)]
-#[require(Interactable, Transform, RigidBody = RigidBody::Static)]
-#[component(on_add = Self::on_add)]
-pub struct Battery {
-    charge: u8,
+pub struct BatteryConfig {
+    pub charge: u8,
 }
 
-impl Default for Battery {
+impl Default for BatteryConfig {
     fn default() -> Self {
         Self { charge: 50 }
     }
 }
 
-#[derive(Component)]
-pub struct BatteryLights {
-    top: Entity,
-    middle: Entity,
-    bottom: Entity,
-}
-
-impl Battery {
-    fn on_add(mut world: DeferredWorld, context: HookContext) {
+impl Config for BatteryConfig {
+    fn instantiate(self, world: &mut World, root_entity: Entity) -> Result {
         let asset_server = world.resource::<AssetServer>();
         let scene = asset_server.load("machines/battery.glb#Scene0");
 
         let mut commands = world.commands();
 
         // outlet connected
-        commands.spawn((
-            OutletSensor {
-                root: context.entity,
-                rest_length: 1.,
-                plug: None,
-            },
-            Collider::cuboid(2., 2., 2.),
-            SyncTranslation {
-                target: context.entity,
-                offset: Vec3::ZERO,
-            },
-            SyncRotation {
-                target: context.entity,
-            },
-        ));
+        let outlet_sensor_entity = commands
+            .spawn((
+                OutletSensor {
+                    root: root_entity,
+                    rest_length: 1.,
+                    plug: None,
+                },
+                Collider::cuboid(2., 2., 2.),
+                SyncTranslation {
+                    target: root_entity,
+                    offset: Vec3::ZERO,
+                },
+                SyncRotation {
+                    target: root_entity,
+                },
+            ))
+            .id();
 
         let light = PointLight {
             intensity: 500.0, // lumens
@@ -72,7 +62,7 @@ impl Battery {
             .spawn((
                 light,
                 SyncTranslation {
-                    target: context.entity,
+                    target: root_entity,
                     offset: Vec3::new(0., 1. / 3., 0.4),
                 },
             ))
@@ -82,7 +72,7 @@ impl Battery {
             .spawn((
                 light,
                 SyncTranslation {
-                    target: context.entity,
+                    target: root_entity,
                     offset: Vec3::new(0., 0., 0.4),
                 },
             ))
@@ -92,23 +82,44 @@ impl Battery {
             .spawn((
                 light,
                 SyncTranslation {
-                    target: context.entity,
+                    target: root_entity,
                     offset: Vec3::new(0., -(1. / 3.), 0.4),
                 },
             ))
             .id();
 
-        commands.entity(context.entity).insert((
+        // battery
+        commands.entity(root_entity).insert((
             BatteryLights {
                 top,
                 middle,
                 bottom,
             },
             SceneRoot(scene),
-            Propagate(ComesFromRootEntity(context.entity)),
+            Propagate(ComesFromRootEntity(root_entity)),
             Collider::cuboid(1., 1., 1.),
+            Battery {
+                charge: self.charge,
+                outlet_sensor_entity,
+            },
         ));
+
+        Ok(())
     }
+}
+
+#[derive(Component)]
+#[require(Interactable, Transform, RigidBody = RigidBody::Static)]
+pub struct Battery {
+    charge: u8,
+    outlet_sensor_entity: Entity,
+}
+
+#[derive(Component)]
+pub struct BatteryLights {
+    top: Entity,
+    middle: Entity,
+    bottom: Entity,
 }
 
 fn load(extras: Query<(&GltfExtras, Entity), Added<GltfExtras>>, mut commands: Commands) -> Result {
@@ -126,7 +137,9 @@ fn load(extras: Query<(&GltfExtras, Entity), Added<GltfExtras>>, mut commands: C
 
         info!("Spawned battery with charge: {charge}");
 
-        commands.entity(entity).insert(Battery { charge });
+        commands
+            .entity(entity)
+            .instantiate(BatteryConfig { charge });
 
         Ok(())
     })

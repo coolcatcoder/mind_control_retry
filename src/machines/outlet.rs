@@ -24,7 +24,7 @@ fn within_range(
     mut collisions_started: EventReader<CollisionStarted>,
 ) {
     for CollisionStarted(entity_1, entity_2) in collisions_started.read() {
-        let ((outlet_sensor_entity, outlet_sensor), (plug_entity, mut plug)) =
+        let ((outlet_sensor_entity, _), (_, mut plug)) =
             match (outlet_sensor.get_mut(*entity_1), plug.get_mut(*entity_2)) {
                 (Ok(outlet_sensor), Ok(plug)) => ((*entity_1, outlet_sensor), (*entity_2, plug)),
                 (Err(_), Err(_)) => {
@@ -56,7 +56,7 @@ fn out_of_range(
     collisions_started
         .read()
         .for_each_fallible(|CollisionEnded(entity_1, entity_2)| {
-            let ((outlet_sensor_entity, outlet_sensor), (plug_entity, mut plug)) =
+            let ((outlet_sensor_entity, _), (_, mut plug)) =
                 match (outlet_sensor.get_mut(*entity_1), plug.get_mut(*entity_2)) {
                     (Ok(outlet_sensor), Ok(plug)) => {
                         ((*entity_1, outlet_sensor), (*entity_2, plug))
@@ -97,6 +97,10 @@ fn connect(
             let mut outlet_sensor = outlet_sensor
                 .get_mut(outlet_sensor_entity)
                 .else_error("No outlet sensor.")?;
+
+            if outlet_sensor.plug.is_some() {
+                return Ok(());
+            }
 
             outlet_sensor.plug = Some(plug_entity);
             plug.outlet_sensor_connected_to = Some(outlet_sensor_entity);

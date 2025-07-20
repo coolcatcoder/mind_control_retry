@@ -1,6 +1,6 @@
 use crate::{
     error_handling::ToFailure,
-    instantiate::Config,
+    instantiate::{Config, GetOrInsert},
     machines::outlet::OutletSensor,
     mouse::{Interactable, drag},
     physics::CollisionLayer,
@@ -15,7 +15,6 @@ pub fn plugin(_: &mut App) {
 }
 
 pub struct CableConfig {
-    pub transform: Transform,
     pub length: u8,
 }
 
@@ -33,6 +32,10 @@ impl Config for CableConfig {
         let asset_server = world.resource::<AssetServer>();
         let plug_scene = asset_server.load("machines/plug.glb#Scene0");
         let cable_scene = asset_server.load("machines/cable.glb#Scene0");
+
+        let transform = world
+            .entity_mut(root_entity)
+            .get_or_insert(Transform::default());
 
         let mut commands = world.commands();
 
@@ -58,7 +61,6 @@ impl Config for CableConfig {
                 collision_layers,
                 SceneRoot(plug_scene.clone()),
                 Propagate(ComesFromRootEntity(root_entity)),
-                self.transform,
                 Interactable,
             ))
             .observe(drag)
@@ -66,7 +68,7 @@ impl Config for CableConfig {
             .observe(drag_end)
             .id();
 
-        let mut previous_transform = self.transform;
+        let mut previous_transform = transform;
         previous_transform.translation.y -= 0.2 + Self::CABLE_RADIUS;
         let mut previous = commands
             .spawn((
@@ -84,6 +86,8 @@ impl Config for CableConfig {
             ))
             .id();
 
+        // TODO: Add distance joint with 0 compliance, that allows from 0 to Self::CABLE_RADIUS * 2 * 2 distance.
+        if false {}
         commands.spawn(
             SphericalJoint::new(head, previous)
                 .with_local_anchor_1(Vec3::NEG_Y * 0.2)
@@ -92,7 +96,7 @@ impl Config for CableConfig {
         );
 
         for i in 1..self.length {
-            let mut transform = self.transform;
+            let mut transform = transform;
             transform.translation.y -= 0.2 + Self::CABLE_RADIUS;
             transform.translation.x += f32::from(i) * Self::CABLE_RADIUS * 2.;
 
@@ -127,7 +131,7 @@ impl Config for CableConfig {
 
         let tail_joint = commands.spawn_empty().id();
 
-        let mut tail_transform = self.transform;
+        let mut tail_transform = transform;
         tail_transform.translation.x += f32::from(self.length - 1) * Self::CABLE_RADIUS * 2.;
         let tail = commands
             .spawn((

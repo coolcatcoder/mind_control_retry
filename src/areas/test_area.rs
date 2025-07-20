@@ -1,7 +1,7 @@
 use avian3d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
-use crate::{areas::LoadArea, instantiate::Instantiate, machines::{battery::Battery, cable::CableConfig, light::LightBulb}, mouse::drag};
+use crate::{areas::LoadArea, instantiate::InstantiateInto, machines::{battery::BatteryConfig, cable::CableConfig, light::LightBulb}, mouse::drag};
 
 pub fn plugin(_: &mut App) {}
 
@@ -12,21 +12,19 @@ pub fn load(commands: &mut Commands) {
     // load area
     commands.spawn((LoadArea, Collider::cuboid(25., 10., 10.), Transform::from_xyz(0., 4., 0.)));
 
-    commands.spawn((Battery::default(), RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.))).observe(drag);
+    commands.spawn((RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.))).observe(drag).instantiate(BatteryConfig {charge: 50});
+    //commands.spawn((Battery::default(), RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.))).observe(drag);
     commands.spawn((LightBulb, Transform::from_xyz(3., 0.5, 1.)));
 
     // Cable test.
-    commands.instantiate(CableConfig {
-        transform: Transform::from_xyz(0., 5., 0.),
+    commands.spawn(Transform::from_xyz(0., 5., 0.)).instantiate(CableConfig {
         length: 100,
     });
 
-    commands.instantiate(CableConfig {
-        transform: Transform::from_xyz(-10., 5., 3.),
+    commands.spawn(Transform::from_xyz(-10., 5., 3.)).instantiate(CableConfig {
         length: 100,
     });
-    commands.instantiate(CableConfig {
-        transform: Transform::from_xyz(-10., 7., 2.),
+    commands.spawn(Transform::from_xyz(-10., 7., 2.)).instantiate(CableConfig {
         length: 100,
     });
 }

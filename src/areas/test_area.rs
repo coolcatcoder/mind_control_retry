@@ -13,7 +13,6 @@ pub fn load(commands: &mut Commands) {
     commands.spawn((LoadArea, Collider::cuboid(25., 10., 10.), Transform::from_xyz(0., 4., 0.)));
 
     commands.spawn((RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.))).observe(drag).instantiate(BatteryConfig {charge: 50});
-    //commands.spawn((Battery::default(), RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.))).observe(drag);
     commands.spawn((LightBulb, Transform::from_xyz(3., 0.5, 1.)));
 
     // Cable test.

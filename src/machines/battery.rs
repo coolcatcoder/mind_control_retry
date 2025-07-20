@@ -37,7 +37,8 @@ impl Config for BatteryConfig {
                 OutletSensor {
                     root: root_entity,
                     rest_length: 1.,
-                    plug: None,
+                    plugs: vec![],
+                    max_plugs: None,
                 },
                 Collider::cuboid(2., 2., 2.),
                 SyncTranslation {
@@ -143,4 +144,8 @@ fn load(extras: Query<(&GltfExtras, Entity), Added<GltfExtras>>, mut commands: C
 
         Ok(())
     })
+}
+
+fn drain(mut battery: Query<&mut Battery>) {
+    battery.iter_mut().for_each(|battery| {});
 }

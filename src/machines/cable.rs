@@ -180,8 +180,9 @@ pub fn drag_start(
     mut outlet_sensor: Query<&mut OutletSensor>,
     mut commands: Commands,
 ) -> Result {
+    let target = drag_start.target();
     let mut plug = plug
-        .get_mut(drag_start.target())
+        .get_mut(target)
         .else_warn("Plug doesn't have a Plug.")?;
 
     plug.dragged = true;
@@ -191,7 +192,12 @@ pub fn drag_start(
     let mut outlet_sensor = outlet_sensor
         .get_mut(outlet_sensor_entity)
         .else_error("No outlet sensor.")?;
-    outlet_sensor.plug = None;
+    let position = outlet_sensor
+        .plugs
+        .iter()
+        .position(|plug| *plug == target)
+        .else_return()?;
+    outlet_sensor.plugs.swap_remove(position);
 
     Ok(())
 }

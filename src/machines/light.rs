@@ -1,10 +1,17 @@
+use std::num::NonZero;
+
 use avian3d::prelude::{Collider, RigidBody, Sensor};
 use bevy::{
     ecs::{component::HookContext, world::DeferredWorld},
     prelude::*,
 };
 
-use crate::{propagate::Propagate, render::SceneNotShadowCaster};
+use crate::{
+    machines::outlet::OutletSensor,
+    propagate::Propagate,
+    render::SceneNotShadowCaster,
+    sync::{SyncRotation, SyncTranslation},
+};
 
 pub fn plugin(_: &mut App) {}
 
@@ -19,6 +26,23 @@ impl LightBulb {
         let scene = asset_server.load("machines/light.glb#Scene0");
 
         let mut commands = world.commands();
+
+        commands.spawn((
+            OutletSensor {
+                root: context.entity,
+                rest_length: 1.,
+                plugs: vec![],
+                max_plugs: NonZero::<u8>::new(1),
+            },
+            Collider::cuboid(2., 2., 2.),
+            SyncTranslation {
+                target: context.entity,
+                offset: Vec3::ZERO,
+            },
+            SyncRotation {
+                target: context.entity,
+            },
+        ));
 
         commands.entity(context.entity).insert((
             Propagate(SceneNotShadowCaster),

@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
@@ -15,7 +17,8 @@ pub fn plugin(app: &mut App) {
 pub struct OutletSensor {
     pub root: Entity,
     pub rest_length: f32,
-    pub plug: Option<Entity>,
+    pub plugs: Vec<Entity>,
+    pub max_plugs: Option<NonZero<u8>>,
 }
 
 fn within_range(
@@ -98,11 +101,13 @@ fn connect(
                 .get_mut(outlet_sensor_entity)
                 .else_error("No outlet sensor.")?;
 
-            if outlet_sensor.plug.is_some() {
+            if let Some(max_plugs) = outlet_sensor.max_plugs
+                && u8::from(max_plugs) as usize == outlet_sensor.plugs.len()
+            {
                 return Ok(());
             }
 
-            outlet_sensor.plug = Some(plug_entity);
+            outlet_sensor.plugs.push(plug_entity);
             plug.outlet_sensor_connected_to = Some(outlet_sensor_entity);
             commands.entity(plug.joint).insert(
                 DistanceJoint::new(outlet_sensor.root, plug_entity)

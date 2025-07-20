@@ -2,7 +2,7 @@ use crate::{
     error_handling::ToFailure,
     instantiate::{Config, GetOrInsert},
     machines::outlet::OutletSensor,
-    mouse::{Interactable, drag},
+    mouse::{drag, Interactable},
     physics::CollisionLayer,
     propagate::Propagate,
     render::ComesFromRootEntity,
@@ -16,6 +16,7 @@ pub fn plugin(_: &mut App) {
 
 pub struct CableConfig {
     pub length: u8,
+    pub force_other_head: Option<Vec3>,
 }
 
 impl CableConfig {
@@ -136,6 +137,11 @@ impl Config for CableConfig {
 
         let mut tail_transform = transform;
         tail_transform.translation.x += f32::from(self.length - 1) * Self::CABLE_RADIUS * 2.;
+
+        if let Some(tail_translation) = self.force_other_head {
+            tail_transform.translation = tail_translation;
+        }
+        
         let tail = commands
             .entity(tail)
             .insert((

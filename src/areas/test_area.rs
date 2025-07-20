@@ -25,23 +25,25 @@ pub fn load(commands: &mut Commands) {
         Transform::from_xyz(0., 4., 0.),
     ));
 
-    let battery = commands
-        .spawn((RigidBody::Dynamic, Transform::from_xyz(0., 0.5, -1.)))
+    commands
+        .spawn((RigidBody::Static, Transform::from_xyz(0., 0.5, -1.)))
         .observe(drag)
-        .instantiate(BatteryConfig { charge: 50 })
-        .id();
-    let light_bulb = commands
-        .spawn((LightBulb, Transform::from_xyz(3., 0.5, 1.)))
-        .id();
+        .instantiate(BatteryConfig { charge: 50 });
+    commands
+        .spawn((LightBulb, Transform::from_xyz(3., 0.5, 4.)));
 
+    // Cable testing.
     commands
-        .spawn(Transform::from_xyz(0., 5., 0.))
-        .instantiate(CableConfig { length: 100 });
+        .spawn(Transform::from_xyz(0., 1., -1.))
+        .instantiate(CableConfig {
+            length: 100,
+            force_other_head: Some(Vec3::new(3., 1., 4.)),
+        });
 
-    commands
-        .spawn(Transform::from_xyz(-10., 5., 3.))
-        .instantiate(CableConfig { length: 100 });
-    commands
-        .spawn(Transform::from_xyz(-10., 7., 2.))
-        .instantiate(CableConfig { length: 100 });
+    // commands
+    //     .spawn(Transform::from_xyz(-10., 5., 3.))
+    //     .instantiate(CableConfig { length: 100 });
+    // commands
+    //     .spawn(Transform::from_xyz(-10., 7., 2.))
+    //     .instantiate(CableConfig { length: 100 });
 }

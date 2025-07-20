@@ -13,43 +13,47 @@ use bevy::ecs::{
     system::{Commands, Local, Query},
 };
 
-/// Plugin to automatically propagate a component value to all direct and transient relationship
-/// targets (e.g. [`bevy_ecs::hierarchy::Children`]) of entities with a [`Propagate`] component.
+/// Plugin to automatically propagate a component value to all direct and
+/// transient relationship targets (e.g. [`bevy_ecs::hierarchy::Children`]) of
+/// entities with a [`Propagate`] component.
 ///
-/// The plugin Will maintain the target component over hierarchy changes, adding or removing
-/// `C` when a relationship `R` (e.g. [`ChildOf`]) is added to or removed from a
-/// relationship tree with a [`Propagate<C>`] source, or if the [`Propagate<C>`] component
-/// is added, changed or removed.
+/// The plugin Will maintain the target component over hierarchy changes, adding
+/// or removing `C` when a relationship `R` (e.g. [`ChildOf`]) is added to or
+/// removed from a relationship tree with a [`Propagate<C>`] source, or if the
+/// [`Propagate<C>`] component is added, changed or removed.
 ///
-/// Optionally you can include a query filter `F` to restrict the entities that are updated.
-/// Note that the filter is not rechecked dynamically: changes to the filter state will not be
-/// picked up until the  [`Propagate`] component is touched, or the hierarchy is changed.
-/// All members of the tree between source and target must match the filter for propagation
-/// to reach a given target.
-/// Individual entities can be skipped or terminate the propagation with the [`PropagateOver`]
-/// and [`PropagateStop`] components.
+/// Optionally you can include a query filter `F` to restrict the entities that
+/// are updated. Note that the filter is not rechecked dynamically: changes to
+/// the filter state will not be picked up until the  [`Propagate`] component is
+/// touched, or the hierarchy is changed. All members of the tree between source
+/// and target must match the filter for propagation to reach a given target.
+/// Individual entities can be skipped or terminate the propagation with the
+/// [`PropagateOver`] and [`PropagateStop`] components.
 pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
     R: Relationship = ChildOf,
 >(PhantomData<fn() -> (C, F, R)>);
 
-/// Causes the inner component to be added to this entity and all direct and transient relationship
-/// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
-/// that point in the tree.
+/// Causes the inner component to be added to this entity and all direct and
+/// transient relationship targets. A target with a [`Propagate<C>`] component
+/// of its own will override propagation from that point in the tree.
 #[derive(Component, Clone, PartialEq)]
 pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
-/// Relationship targets will still inherit the component from this entity or its parents.
+/// Relationship targets will still inherit the component from this entity or
+/// its parents.
 #[derive(Component)]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
-/// Stops the propagation at this entity. Children will not inherit the component.
+/// Stops the propagation at this entity. Children will not inherit the
+/// component.
 #[derive(Component)]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
-/// The set in which propagation systems are added. You can schedule your logic relative to this set.
+/// The set in which propagation systems are added. You can schedule your logic
+/// relative to this set.
 #[derive(SystemSet, Clone, PartialEq, PartialOrd, Ord)]
 pub struct PropagateSet<C: Component + Clone + PartialEq> {
     _p: PhantomData<fn() -> C>,
@@ -120,7 +124,8 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
     }
 }
 
-/// add/remove `Inherited::<C>` and `C` for entities with a direct `Propagate::<C>`
+/// add/remove `Inherited::<C>` and `C` for entities with a direct
+/// `Propagate::<C>`
 pub fn update_source<C: Component + Clone + PartialEq>(
     mut commands: Commands,
     changed: Query<
@@ -156,7 +161,8 @@ pub fn update_stopped<C: Component + Clone + PartialEq, F: QueryFilter>(
     }
 }
 
-/// add/remove `Inherited::<C>` and `C` for entities which have changed relationship
+/// add/remove `Inherited::<C>` and `C` for entities which have changed
+/// relationship
 pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     moved: Query<
@@ -184,7 +190,8 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
     }
 }
 
-/// add/remove `Inherited::<C>` for targets of entities with modified `Inherited::<C>`
+/// add/remove `Inherited::<C>` for targets of entities with modified
+/// `Inherited::<C>`
 pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     changed: Query<

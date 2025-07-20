@@ -88,7 +88,8 @@ impl Config for CableConfig {
             ))
             .id();
 
-        // TODO: Add distance joint with 0 compliance, that allows from 0 to Self::CABLE_RADIUS * 2 * 2 distance.
+        // TODO: Add distance joint with 0 compliance, that allows from 0 to
+        // Self::CABLE_RADIUS * 2 * 2 distance.
         if false {}
         commands.spawn(
             SphericalJoint::new(head, previous)

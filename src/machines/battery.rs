@@ -32,10 +32,8 @@ impl Config for BatteryConfig {
         let asset_server = world.resource::<AssetServer>();
         let scene = asset_server.load("machines/battery.glb#Scene0");
 
-        let mut commands = world.commands();
-
         // outlet connected
-        let outlet_sensor_entity = commands
+        let outlet_sensor_entity = world
             .spawn((
                 OutletSensor {
                     root: root_entity,
@@ -62,7 +60,7 @@ impl Config for BatteryConfig {
             ..default()
         };
 
-        let top = commands
+        let top = world
             .spawn((
                 light,
                 SyncTranslation {
@@ -72,7 +70,7 @@ impl Config for BatteryConfig {
             ))
             .id();
 
-        let middle = commands
+        let middle = world
             .spawn((
                 light,
                 SyncTranslation {
@@ -82,7 +80,7 @@ impl Config for BatteryConfig {
             ))
             .id();
 
-        let bottom = commands
+        let bottom = world
             .spawn((
                 light,
                 SyncTranslation {
@@ -93,7 +91,7 @@ impl Config for BatteryConfig {
             .id();
 
         // battery
-        commands.entity(root_entity).insert((
+        world.entity_mut(root_entity).insert((
             BatteryLights {
                 top,
                 middle,

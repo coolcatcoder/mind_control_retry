@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use crate::{
     areas::LoadArea,
     instantiate::InstantiateInto,
-    machines::{battery::BatteryConfig, cable::CableConfig, light::LightBulb},
+    machines::{battery::BatteryConfig, cable::CableConfig, light::LightBulb, robot::RobotConfig},
     mouse::drag,
 };
 
@@ -24,6 +24,11 @@ pub fn load(commands: &mut Commands) {
         Collider::cuboid(25., 10., 10.),
         Transform::from_xyz(0., 4., 0.),
     ));
+
+    // player
+    commands
+        .spawn(Transform::from_xyz(0., 1., 7.))
+        .instantiate(RobotConfig);
 
     commands
         .spawn((RigidBody::Static, Transform::from_xyz(0., 0.5, -1.)))

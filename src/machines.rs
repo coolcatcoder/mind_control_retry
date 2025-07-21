@@ -5,6 +5,7 @@ pub mod cable;
 pub mod light;
 pub mod outlet;
 pub mod power;
+pub mod robot;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
@@ -13,5 +14,6 @@ pub fn plugin(app: &mut App) {
         cable::plugin,
         outlet::plugin,
         power::plugin,
+        robot::plugin,
     ));
 }

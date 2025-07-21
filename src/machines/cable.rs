@@ -90,7 +90,7 @@ impl Config for CableConfig {
                 previous_transform,
             ))
             .id();
-        
+
         commands.spawn(
             SphericalJoint::new(head, previous)
                 .with_local_anchor_1(Vec3::NEG_Y * 0.2)

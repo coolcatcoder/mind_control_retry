@@ -1,11 +1,12 @@
 use crate::{
-    error_handling::ToFailure, instantiate::Config, propagate::Propagate,
+    error_handling::ToFailure,
+    instantiate::Config,
+    lost::{change_range, move_towards_single_axis},
+    physics::common_properties::AIR_RESISTANCE,
+    propagate::Propagate,
     render::ComesFromRootEntity,
 };
-use avian3d::prelude::{
-    AngularVelocity, Collider, LinearVelocity, MassPropertiesBundle, RigidBody, ShapeCastConfig,
-    SpatialQuery, SpatialQueryFilter,
-};
+use avian3d::prelude::*;
 use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -27,7 +28,10 @@ impl Config for RobotConfig {
                 SceneRoot(scene),
                 Propagate(ComesFromRootEntity(root_entity)),
                 RigidBody::Dynamic,
-                MassPropertiesBundle::from_shape(&Cuboid::new(1., 2., 2.), 20.),
+                AIR_RESISTANCE,
+                GravityScale(0.),
+                Mass(70.),
+                LockedAxes::ROTATION_LOCKED.unlock_rotation_y(),
                 Collider::cuboid(1., 2., 2.),
             ));
 
@@ -51,7 +55,8 @@ fn hover(
     spatial_query: SpatialQuery,
     time: Res<Time>,
 ) {
-    let time = time.delta_secs();
+    let time_delta = time.delta_secs();
+
     robot.iter_mut().for_each(
         |(entity, mut linear_velocity, mut angular_velocity, transform)| {
             if let Some(hit) = spatial_query.cast_shape(
@@ -59,16 +64,44 @@ fn hover(
                 transform.translation,
                 transform.rotation,
                 Dir3::NEG_Y,
-                &ShapeCastConfig::from_max_distance(5.),
+                &ShapeCastConfig {
+                    max_distance: 20.,
+                    ignore_origin_penetration: true,
+                    ..default()
+                },
                 &SpatialQueryFilter::from_excluded_entities([entity]),
             ) {
-                let y_desired = hit.point1.y + 2.;
-                let y_change = y_desired - transform.translation.y;
-                linear_velocity.y = y_change * time * 1000.;
-                linear_velocity.y = linear_velocity.y.min(10.);
+                let desired_y = hit.point1.y + 2.;
+                let current_y = transform.translation.y;
+
+                let distance = (desired_y - current_y).abs();
+                let speed = change_range((0., 0.5), (0., 2.), distance).unwrap_or(2.);
+                info!(speed);
+
+                move_towards_single_axis(
+                    hit.point1.y + 2.,
+                    transform.translation.y,
+                    speed,
+                    2.,
+                    time_delta,
+                    &mut linear_velocity.y,
+                );
             }
 
-            //angular_velocity.
+            // rotate_towards(
+            //     Quat::IDENTITY,
+            //     transform.rotation,
+            //     &mut angular_velocity,
+            //     time_delta,
+            // );
+            // angular_velocity.0 = angular_velocity.0.min(Vec3::splat(3.));
+            // rotate_towards_new(
+            //     Quat::IDENTITY,
+            //     1.,
+            //     transform.rotation,
+            //     &mut angular_velocity,
+            //     time_delta,
+            // );
         },
     );
 }

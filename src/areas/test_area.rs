@@ -28,7 +28,8 @@ pub fn load(commands: &mut Commands) {
     // player
     commands
         .spawn(Transform::from_xyz(0., 1., 7.))
-        .instantiate(RobotConfig);
+        .instantiate(RobotConfig)
+        .observe(drag);
 
     commands
         .spawn((RigidBody::Static, Transform::from_xyz(0., 0.5, -1.)))

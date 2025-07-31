@@ -2,6 +2,8 @@ use crate::error_handling::{ForEachFallible, ToFailure};
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
+pub mod common_properties;
+
 const DEBUG: bool = true;
 
 pub fn plugin(app: &mut App) {

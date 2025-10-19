@@ -1,23 +1,25 @@
-use avian3d::prelude::*;
 use crate::areas::LoadedFromArea;
 pub use crate::bevy_prelude::*;
+use avian3d::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, load);
 }
 
-fn load(
-    names: Query<(Entity, &Name), Added<LoadedFromArea>>,
-    mut commands: Commands,
-) {
+fn load(names: Query<(Entity, &Name), Added<LoadedFromArea>>, mut commands: Commands) {
     for (entity, name) in names {
-        name.starts_with("collider").else_return()?;
+        if name.starts_with("collider") {
+            commands.entity(entity).insert((
+                ColliderConstructorHierarchy::new(ColliderConstructor::ConvexDecompositionFromMesh),
+                RigidBody::Static,
+            ));
+        } else if name.starts_with("dynamic") {
+            commands.entity(entity).insert((
+                ColliderConstructorHierarchy::new(ColliderConstructor::ConvexDecompositionFromMesh),
+                RigidBody::Dynamic,
+            ));
 
-        commands.entity(entity).insert((
-            ColliderConstructorHierarchy::new(ColliderConstructor::ConvexDecompositionFromMesh),
-            RigidBody::Static
-        ));
-
-        info!("Decomposed");
+            warn!("Automatic dynamic meshes are for temporary testing only. Name: {name}");
+        }
     }
 }

@@ -1,9 +1,9 @@
+use crate::{error_handling::ToUnwrapResult, plugin_module};
 use bevy::{
     ecs::{lifecycle::HookContext, world::DeferredWorld},
     prelude::*,
     scene::SceneInstanceReady,
 };
-use crate::{error_handling::ToUnwrapResult, plugin_module};
 
 mod feathers;
 

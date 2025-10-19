@@ -7,11 +7,7 @@ use std::{
 };
 
 // TODO: Anything in here must be removed eventually.
-use crate::{
-    creatures::tester::Tester,
-    mind_control::Controlled,
-    physics::{CollisionLayer, common_properties::AIR_RESISTANCE},
-};
+use crate::physics::{CollisionLayer, common_properties::AIR_RESISTANCE};
 use avian3d::prelude::{AngularVelocity, CollisionLayers, Mass, MassPropertiesBundle, RigidBody};
 use bevy::{
     ecs::{

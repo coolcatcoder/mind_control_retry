@@ -20,7 +20,7 @@ use bevy_mod_outline::OutlineVolume;
 
 pub use crate::bevy_prelude::*;
 use crate::{
-    areas::Area,
+    areas::{Area, AreaLoadedEntity},
     mouse::{
         drag::Dragged,
         selection::{OutlineWhileSelected, SelectOthers, Selected},
@@ -34,7 +34,7 @@ pub fn editor(file_path: &'static str) -> impl Fn(&mut App) {
     move |app: &mut App| {
         app.add_plugins(FeathersPlugins)
             .insert_resource(UiTheme(create_dark_theme()))
-            .add_systems(Update, (make_develop_selectable, add_extra_selectables))
+            .add_observer(make_develop_selectable)
             .add_systems(Startup, create_load(file_path));
 
         if crate::DEVELOP || DEVELOP_OVERRIDE {
@@ -55,52 +55,19 @@ fn log_system(query: Query<(Entity, &Transform, Ref<Transform>, &Name), Changed<
     }
 }
 
-fn add_extra_selectables(
-    select_others: Query<&SelectOthers, (Added<SelectOthers>, With<Selected<true>>)>,
-    mut commands: Commands,
-) {
-    select_others.iter().for_each(|select_others| {
-        select_others.0.iter().for_each(|other| {
-            commands
-                .entity(*other)
-                .insert((
-                    Selected::<true>(false),
-                    OutlineWhileSelected::<true> {
-                        colour: Color::srgb(1., 0., 0.),
-                        width: 3.,
-                    },
-                ))
-                .observe(drag);
-        });
-    });
-}
+fn make_develop_selectable(on: On<AreaLoadedEntity>, mut commands: Commands) {
+    commands
+        .entity(on.loaded)
+        .insert((
+            Selected::<true>(false),
+            OutlineWhileSelected::<true> {
+                colour: Color::srgb(1., 0., 0.),
+                width: 3.,
+            },
+        ))
+        .observe(drag);
 
-fn make_develop_selectable(
-    areas: Query<&Children, (Added<SceneInstance>, With<Area>)>,
-    children: Query<&Children>,
-    mut commands: Commands,
-) {
-    areas.iter().for_each(|scene_children| {
-        if scene_children.len() != 1 {
-            error!("There should only be one child for SceneInstance entities.");
-            return;
-        }
-        let scene_child = scene_children.iter().next().else_return()?;
-        let children = children.get(scene_child).else_return()?;
-
-        children.iter().for_each(|child| {
-            commands
-                .entity(child)
-                .insert((
-                    Selected::<true>(false),
-                    OutlineWhileSelected::<true> {
-                        colour: Color::srgb(1., 0., 0.),
-                        width: 3.,
-                    },
-                ))
-                .observe(drag);
-        });
-    });
+    info!("Did it.");
 }
 
 fn create_load(file_path: &'static str) -> impl Fn(Commands) {

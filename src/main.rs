@@ -3,6 +3,8 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::needless_pass_by_value)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::manual_midpoint)]
+#![allow(clippy::similar_names)]
 #![warn(clippy::unwrap_used)]
 #![allow(clippy::needless_for_each)]
 #![allow(clippy::too_many_arguments)]
@@ -36,10 +38,10 @@ mod areas;
 mod controls;
 mod creatures;
 mod error_handling;
+mod frustum_gizmo;
 mod instantiate;
 mod lost;
 mod machines;
-mod mind_control;
 mod mouse;
 mod physics;
 mod render;
@@ -55,7 +57,6 @@ fn main() {
         controls::plugin,
         lost::plugin,
         creatures::plugin,
-        mind_control::plugin,
         machines::plugin,
         mouse::plugin,
         physics::plugin,

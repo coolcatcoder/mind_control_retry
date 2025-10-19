@@ -6,29 +6,11 @@ use bevy::{
 
 use crate::{
     controls::{Action, Actions},
-    mind_control::{Controlled, outline_on_over, remove_outline_on_out, take_control_on_click},
+    machines::player::Player,
 };
 
-pub mod tester;
-
 pub fn plugin(app: &mut App) {
-    app.add_plugins(tester::plugin)
-        .add_systems(Update, (land_handling, basic_horizontal_control).chain());
-}
-
-#[derive(Component, Default)]
-#[component(on_add = Creature::on_add)]
-pub struct Creature;
-
-impl Creature {
-    fn on_add(mut world: DeferredWorld, context: HookContext) {
-        world
-            .commands()
-            .entity(context.entity)
-            .observe(take_control_on_click)
-            .observe(outline_on_over)
-            .observe(remove_outline_on_out);
-    }
+    app.add_systems(Update, (land_handling, basic_horizontal_control).chain());
 }
 
 pub enum LandHandlingState {
@@ -79,7 +61,7 @@ pub struct BasicHorizontalControl {
     pub speed: f32,
 }
 fn basic_horizontal_control(
-    velocity: Query<(&mut LinearVelocity, &BasicHorizontalControl), With<Controlled>>,
+    velocity: Query<(&mut LinearVelocity, &BasicHorizontalControl), With<Player>>,
     actions: Res<Actions>,
 ) {
     for (mut velocity, control) in velocity {

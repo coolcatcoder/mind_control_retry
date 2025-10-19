@@ -32,10 +32,8 @@ pub fn load(
             let plug_scene = asset_server.load("machines/plug.glb#Scene0");
             let cable_scene = asset_server.load("machines/cable.glb#Scene0");
 
-            let collision_layers = CollisionLayers::new(
-                CollisionLayer::Cable,
-                CollisionLayer::Default,
-            );
+            let collision_layers =
+                CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default);
 
             let mut select_others = vec![root_entity];
 

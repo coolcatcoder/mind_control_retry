@@ -3,7 +3,7 @@ use std::fmt::Debug;
 pub use crate::bevy_prelude::*;
 use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineMode, OutlineVolume};
 
-const DEVELOP_OVERRIDE: bool = false;
+const DEVELOP_OVERRIDE: bool = true;
 
 /// Allows the entity to be selected with the mouse.
 #[derive(Component)]
@@ -49,6 +49,7 @@ fn select<const DEVELOP: bool>(
 ) where
     Selected<DEVELOP>: ClickOrPress,
 {
+    info!("got");
     let (mut selected, select_others, outline_while_selected) = selecteds
         .get_mut(on.entity)
         .else_error("Unreachable. No Selected component found.")?;

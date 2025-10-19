@@ -1,3 +1,5 @@
+use avian3d::prelude::*;
+
 pub use crate::bevy_prelude::*;
 use crate::{
     areas::{Area, AreaLoadedEntity},
@@ -25,23 +27,23 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-fn full_patch(
-    on: On<AreaLoadedEntity>,
-    mut loaded: Query<(&Name, &mut Transform)>,
-    mut commands: Commands,
-) {
-    let (name, transform) = loaded
+fn full_patch(on: On<AreaLoadedEntity>, mut loaded: Query<&Name>, mut commands: Commands) {
+    let name = loaded
         .get_mut(on.loaded)
         .else_error("Could not get components on loaded entity.")?;
-    
+
     //patch(name, transform);
 
     #[allow(clippy::match_same_arms)]
     #[allow(clippy::unreadable_literal)]
     #[allow(clippy::single_match)]
     match name.as_str() {
-        "mushroom" => {
-            //commands.entity(entity).insert(bundle)
+        "container" => {
+            commands.entity(on.loaded).insert((
+                Collider::cylinder(0.3, 0.6),
+                Mass(8.1),
+                RigidBody::Dynamic,
+            ));
         }
         _ => (),
     }

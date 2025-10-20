@@ -32,7 +32,7 @@ mod bevy_prelude {
 
 mod gather;
 
-plugin_module!(sync, editor);
+plugin_module!(sync, editor, chain);
 
 mod areas;
 mod controls;

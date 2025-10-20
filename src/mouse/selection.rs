@@ -49,7 +49,6 @@ fn select<const DEVELOP: bool>(
 ) where
     Selected<DEVELOP>: ClickOrPress,
 {
-    info!("got");
     let (mut selected, select_others, outline_while_selected) = selecteds
         .get_mut(on.entity)
         .else_error("Unreachable. No Selected component found.")?;

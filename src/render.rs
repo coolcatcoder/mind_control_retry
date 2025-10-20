@@ -1,5 +1,5 @@
 pub use crate::bevy_prelude::*;
-use crate::{frustum_gizmo::ShowFrustumGizmo, machines::player::Player};
+use crate::machines::player::Player;
 use bevy::{
     app::HierarchyPropagatePlugin, core_pipeline::tonemapping::Tonemapping, light::NotShadowCaster,
     post_process::bloom::Bloom,

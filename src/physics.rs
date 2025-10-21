@@ -1,6 +1,7 @@
 use crate::plugin_module;
 use avian3d::prelude::*;
 use bevy::prelude::*;
+use rand::Rng;
 
 plugin_module!(pub scene);
 
@@ -28,11 +29,28 @@ pub enum CollisionLayer {
 }
 
 #[derive(Component)]
+#[require(Sway)]
 pub struct Accelerate(pub Vec3);
 
-fn accelerate(query: Query<(&Accelerate, &mut LinearVelocity)>, time: Res<Time>) {
+#[derive(Default, Component)]
+pub struct Sway {
+    seconds_remaining: f32,
+    sway: Vec3,
+}
+
+fn accelerate(query: Query<(&Accelerate, &mut Sway, &mut LinearVelocity)>, time: Res<Time>) {
     let time_delta = time.delta_secs();
-    for (accelerate, mut linear_velocity) in query {
-        **linear_velocity += accelerate.0 * time_delta;
+    let mut rng = rand::rng();
+    for (accelerate, mut sway, mut linear_velocity) in query {
+        if sway.seconds_remaining <= 0. {
+            //sway.sway = Vec3::new(rng.random_range(-0.3..0.3), rng.random_range(0.0..0.3), rng.random_range(-0.3..0.3));
+            //sway.seconds_remaining = rng.random_range(5.0..15.0);
+            sway.seconds_remaining = rng.random_range(0.5..2.0);
+            sway.sway = Vec3::new(rng.random_range(-1.0..1.0), rng.random_range(0.0..0.3), rng.random_range(-1.0..1.0));
+        } else {
+            sway.seconds_remaining -= time_delta;
+        }
+
+        **linear_velocity += (accelerate.0 + sway.sway) * time_delta;
     }
 }

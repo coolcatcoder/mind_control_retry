@@ -2960,6 +2960,7 @@ dependencies = [
  "const-str",
  "leafwing-input-manager",
  "procedural_macros",
+ "rand",
  "serde_json",
 ]
 

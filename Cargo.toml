@@ -45,6 +45,7 @@ bevy_mod_outline = { path="../bevy_mod_outline_0_17_patching" }
 const-str = "0.7.0"
 serde_json = "1.0.145"
 procedural_macros = { path = "procedural_macros" }
+rand = "0.9.2"
 
 [profile.dev.package.bevy]
 hint-mostly-unused = true

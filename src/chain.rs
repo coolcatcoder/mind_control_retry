@@ -5,6 +5,9 @@ use avian3d::prelude::*;
 pub const FUNGUS_PURPLE_GLOW: ChainPointConfigured =
     ChainPointConfigured::new("fungus_purple_glow", 0.05);
 
+pub const SEAWEED: ChainPointConfigured =
+    ChainPointConfigured::new("seaweed", 0.05);
+
 pub mod fungus_a {
     use super::ChainPointConfigured;
 

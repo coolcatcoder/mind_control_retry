@@ -1,26 +1,92 @@
 pub use crate::bevy_prelude::*;
-use crate::physics::{CollisionLayer, common_properties::AIR_RESISTANCE};
+use crate::physics::{Accelerate, CollisionLayer};
 use avian3d::prelude::*;
 
-pub struct ChainConfig {
-    pub mesh: &'static str,
-    pub gap_between_points: f32,
-    pub radius: f32,
-    pub gravity_scale: f32,
-    pub rigid_body: RigidBody,
-    pub mass: f32,
-    pub alter: fn(&mut EntityCommands<'_>),
+pub const FUNGUS_PURPLE_GLOW: ChainPointConfigured =
+    ChainPointConfigured::new("fungus_purple_glow", 0.05);
+
+pub mod fungus_a {
+    use super::ChainPointConfigured;
+
+    pub const CAP: ChainPointConfigured = ChainPointConfigured::new("fungus_a/cap", 0.5 * 0.1);
 }
 
-impl ChainConfig {
-    fn point_bundle(&self, mesh: Handle<Scene>, translation: Vec3) -> impl Bundle {
-        (
-            SceneRoot(mesh),
+pub struct ChainPointConfigured {
+    mesh: &'static str,
+    radius: f32,
+    config: ChainOperationConfig,
+}
+
+impl ChainPointConfigured {
+    const fn new(mesh: &'static str, radius: f32) -> Self {
+        Self {
+            mesh,
+            radius,
+            config: ChainOperationConfig::default(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ChainOperationConfig {
+    gap_between_points: f32,
+    gravity_override: Option<Vec3>,
+    rigid_body: RigidBody,
+    mass: f32,
+    alter: fn(&mut EntityCommands<'_>),
+}
+
+impl ChainOperationConfig {
+    const fn default() -> Self {
+        Self {
+            gap_between_points: 0.,
+            gravity_override: None,
+            rigid_body: RigidBody::Dynamic,
+            mass: 0.05,
+            alter: |_| {},
+        }
+    }
+}
+
+impl ChainPointConfigured {
+    pub fn start(self, pos: Vec3) -> ChainOperationStart {
+        ChainOperationStart {
+            chain_point_configured: self,
+            translation: pos,
+        }
+    }
+
+    pub fn rigid_body(mut self, rigid_body: RigidBody) -> Self {
+        self.config.rigid_body = rigid_body;
+        self
+    }
+}
+
+#[derive(Clone)]
+pub struct ChainOperationState {
+    previous_entity: Entity,
+    previous_translation: Vec3,
+    previous_radius: f32,
+
+    mesh: Handle<Scene>,
+    radius: f32,
+
+    config: ChainOperationConfig,
+}
+
+impl ChainOperationState {
+    fn insert_point_bundle(
+        &self,
+        entity_commands: &mut EntityCommands,
+        translation: Vec3,
+        extra: impl Bundle,
+    ) {
+        entity_commands.insert((
+            SceneRoot(self.mesh.clone()),
             Transform::from_translation(translation),
-            self.rigid_body,
+            self.config.rigid_body,
             LockedAxes::ROTATION_LOCKED,
-            Mass(self.mass),
-            GravityScale(self.gravity_scale),
+            Mass(self.config.mass),
             Collider::sphere(self.radius),
             SleepThreshold {
                 linear: 0.01,
@@ -28,118 +94,162 @@ impl ChainConfig {
             },
             CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default),
             LinearDamping(1.),
-        )
-    }
+            extra,
+        ));
 
-    pub fn start<'f, 'a, 'c, 'w, 's>(
-        &'f self,
-        commands: &'c mut Commands<'w, 's>,
-        asset_server: &'a AssetServer,
-        translation: Vec3,
-    ) -> ChainBuilder<'f, 'a, 'c, 'w, 's> {
-        let mesh = asset_server.load(format!("{}/mesh.glb#Scene0", self.mesh));
-        let mut previous_entity = commands.spawn(self.point_bundle(mesh.clone(), translation));
-        (self.alter)(&mut previous_entity);
-        let previous_entity = previous_entity.id();
-
-        ChainBuilder {
-            commands,
-            asset_server,
-            config: self,
-
-            state: BuilderState {
-                previous_entity,
-                previous_translation: translation,
-                previous_radius: self.radius,
-                mesh,
-            },
+        if let Some(gravity_override) = self.config.gravity_override {
+            entity_commands.insert((GravityScale(0.), Accelerate(gravity_override)));
         }
     }
 }
 
-pub struct ChainBuilder<'f, 'a, 'c, 'w, 's> {
-    commands: &'c mut Commands<'w, 's>,
-    asset_server: &'a AssetServer,
-    config: &'f ChainConfig,
+pub trait ChainOperation: Sized {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState;
 
-    pub state: BuilderState,
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    );
+
+    fn run(self, asset_server: &AssetServer, commands: &mut Commands) -> ChainOperationFinished {
+        let mut state = self.internal_start(asset_server);
+        self.internal_apply(&mut state, commands, asset_server);
+
+        ChainOperationFinished { state }
+    }
+
+    fn to(self, pos: Vec3) -> ChainOperationTo<Self> {
+        ChainOperationTo {
+            previous: self,
+            translation: pos,
+        }
+    }
+
+    fn one(self, dir: Vec3) -> ChainOperationOne<Self> {
+        ChainOperationOne {
+            previous: self,
+            direction: dir,
+        }
+    }
+
+    fn rigid_body(self, rigid_body: RigidBody) -> ChainOperationRigidBody<Self> {
+        ChainOperationRigidBody {
+            previous: self,
+            rigid_body,
+        }
+    }
+
+    fn gravity_override(self, gravity_override: Vec3) -> ChainOperationGravityOverride<Self> {
+        ChainOperationGravityOverride {
+            previous: self,
+            acceleration: gravity_override,
+        }
+    }
+
+    fn mesh(self, mesh: ChainPointConfigured) -> ChainOperationMesh<Self> {
+        ChainOperationMesh {
+            previous: self,
+            mesh: mesh.mesh,
+            radius: mesh.radius,
+        }
+    }
+}
+
+pub struct ChainOperationStart {
+    chain_point_configured: ChainPointConfigured,
+    translation: Vec3,
+}
+
+impl ChainOperation for ChainOperationStart {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        ChainOperationState {
+            previous_entity: Entity::PLACEHOLDER,
+            previous_translation: self.translation,
+            previous_radius: self.chain_point_configured.radius,
+
+            mesh: asset_server.load(format!(
+                "{}/mesh.glb#Scene0",
+                self.chain_point_configured.mesh
+            )),
+            radius: self.chain_point_configured.radius,
+
+            config: self.chain_point_configured.config.clone(),
+        }
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        _: &AssetServer,
+    ) {
+        let mut previous_entity = commands.spawn_empty();
+        state.insert_point_bundle(&mut previous_entity, self.translation, ());
+        (state.config.alter)(&mut previous_entity);
+        state.previous_entity = previous_entity.id();
+
+        info!("Started!");
+    }
 }
 
 #[derive(Clone)]
-pub struct BuilderState {
-    previous_entity: Entity,
-    previous_translation: Vec3,
-    previous_radius: f32,
-    mesh: Handle<Scene>,
+pub struct ChainOperationFinished {
+    state: ChainOperationState,
 }
 
-impl<'f> ChainBuilder<'f, '_, '_, '_, '_> {
-    pub fn configure(&mut self, config: &'f ChainConfig) -> &mut Self {
-        self.state.mesh = self
-            .asset_server
-            .load(format!("{}/mesh.glb#Scene0", config.mesh));
-        self.config = config;
-        self
+impl ChainOperation for ChainOperationFinished {
+    fn internal_start(&self, _: &AssetServer) -> ChainOperationState {
+        self.state.clone()
     }
 
-    pub fn one(&mut self) -> &mut Self {
-        let last_final_translation = self.state.previous_translation;
+    fn internal_apply(self, _: &mut ChainOperationState, _: &mut Commands, _: &AssetServer) {}
+}
 
-        // radius gap radius?
-        let point_translation =
-            (self.state.previous_radius + self.config.gap_between_points + self.config.radius)
-                * Vec3::Y
-                + last_final_translation;
+pub struct ChainOperationTo<T> {
+    previous: T,
+    translation: Vec3,
+}
 
-        let saved_previous_entity = self.state.previous_entity;
-
-        let mut previous_entity = self.commands.spawn(
-            self.config
-                .point_bundle(self.state.mesh.clone(), point_translation),
-        );
-        (self.config.alter)(&mut previous_entity);
-        self.state.previous_entity = previous_entity.id();
-
-        self.commands.spawn(
-            DistanceJoint::new(saved_previous_entity, self.state.previous_entity)
-                .with_limits(0., self.config.radius * 2. + self.config.gap_between_points),
-        );
-
-        self.state.previous_translation = point_translation;
-
-        self.state.previous_radius = self.config.radius;
-        self
+impl<T: ChainOperation> ChainOperation for ChainOperationTo<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
     }
 
-    pub fn to(&mut self, translation: Vec3) -> &mut Self {
-        let direction = (translation - self.state.previous_translation).normalize_or_zero();
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+
+        let direction = (self.translation - state.previous_translation).normalize_or_zero();
 
         #[allow(clippy::cast_possible_truncation)]
         #[allow(clippy::cast_sign_loss)]
-        let quantity = (translation.distance(self.state.previous_translation)
-            / (self.config.radius + self.config.gap_between_points + self.config.radius))
+        let quantity = (self.translation.distance(state.previous_translation)
+            / (state.radius + state.config.gap_between_points + state.radius))
             .floor() as u16;
 
-        let last_final_translation = self.state.previous_translation;
+        let last_final_translation = state.previous_translation;
 
         for i in 0..quantity {
             // radius gap radius?
-            let point_translation = (self.state.previous_radius
-                + self.config.gap_between_points
-                + self.config.radius
-                + (f32::from(i)
-                    * (self.config.radius + self.config.gap_between_points + self.config.radius)))
+            let point_translation = (state.previous_radius
+                + state.config.gap_between_points
+                + state.radius
+                + (f32::from(i) * (state.radius + state.config.gap_between_points + state.radius)))
                 * direction
                 + last_final_translation;
 
-            let saved_previous_entity = self.state.previous_entity;
+            let saved_previous_entity = state.previous_entity;
 
-            let mut previous_entity = self.commands.spawn(
-                self.config
-                    .point_bundle(self.state.mesh.clone(), point_translation),
-            );
-            (self.config.alter)(&mut previous_entity);
-            self.state.previous_entity = previous_entity.id();
+            let mut previous_entity = commands.spawn_empty();
+            state.insert_point_bundle(&mut previous_entity, point_translation, ());
+            (state.config.alter)(&mut previous_entity);
+            state.previous_entity = previous_entity.id();
 
             // if i % 6 == 0 {
             //     cable.insert((Collider::sphere(CABLE_RADIUS), collision_layers));
@@ -147,193 +257,137 @@ impl<'f> ChainBuilder<'f, '_, '_, '_, '_> {
             //     cable.insert(GravityScale(-0.01));
             // }
 
-            self.commands.spawn(
-                DistanceJoint::new(saved_previous_entity, self.state.previous_entity)
-                    .with_limits(0., self.config.radius * 2. + self.config.gap_between_points),
-            );
-
-            self.state.previous_translation = point_translation;
-        }
-
-        self.state.previous_radius = self.config.radius;
-        self
-    }
-}
-
-/*
-const PLUG_DENSITY: f32 = 25.;
-const PLUG_COMPLIANCE: f32 = 0.0001;
-
-const CABLE_RADIUS: f32 = 0.25 * 0.5;
-const CABLE_DENSITY: f32 = 10.;
-const CABLE_COMPLIANCE: f32 = 0.01;
-
-const MAX_DISTANCE: f32 = 0.2;
-
-pub fn load(
-    names: Query<(Entity, &Name, &Transform, &LoadedFromArea), Added<LoadedFromArea>>,
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
-) {
-    for (root_entity, name, transform, loaded_from_area) in names {
-        if name.starts_with("cable") {
-            let plug_scene = asset_server.load("machines/plug.glb#Scene0");
-            let cable_scene = asset_server.load("machines/cable.glb#Scene0");
-
-            let collision_layers =
-                CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default);
-
-            let mut select_others = vec![root_entity];
-
-            let head_joint = commands.spawn_empty().id();
-            let tail = commands.spawn_empty().id();
-            select_others.push(tail);
-
-            let head = commands
-                .entity(root_entity)
-                .insert((
-                    Plug {
-                        outlet_sensors_within_range: vec![],
-                        dragged: false,
-                        outlet_sensor_connected_to: None,
-                        joint: head_joint,
-                        other_end: tail,
-                    },
-                    RigidBody::Dynamic,
-                    MassPropertiesBundle::from_shape(&Cuboid::new(0.8, 0.4, 0.8), PLUG_DENSITY),
-                    Collider::cuboid(0.8, 0.4, 0.8),
-                    collision_layers,
-                    SceneRoot(plug_scene.clone()),
-                    Propagate(ComesFromRootEntity(root_entity)),
-                    Interactable,
-                    Dragged::default(),
-                ))
-                .observe(drag_start)
-                .observe(drag_end)
-                .id();
-
-            let mut previous_transform = *transform;
-            previous_transform.translation.y -= 0.2 + CABLE_RADIUS;
-            let mut previous = commands
-                .spawn((
-                    RigidBody::Dynamic,
-                    LockedAxes::ROTATION_LOCKED,
-                    MassPropertiesBundle::from_shape(&Sphere::new(CABLE_RADIUS), CABLE_DENSITY),
-                    Collider::sphere(CABLE_RADIUS),
-                    collision_layers,
-                    SceneRoot(cable_scene.clone()),
-                    Propagate(ComesFromRootEntity(root_entity)),
-                    previous_transform,
-                    Name::new(format!("block_loading_{name}_first_previous")),
-                    LoadedFromArea(loaded_from_area.0),
-                ))
-                .id();
-            select_others.push(previous);
-
-            commands.spawn(
-                SphericalJoint::new(head, previous)
-                    .with_local_anchor1(Vec3::NEG_Y * 0.2)
-                    .with_local_anchor2(Vec3::Y * CABLE_RADIUS)
-                    .with_point_compliance(PLUG_COMPLIANCE)
-                    .with_swing_compliance(PLUG_COMPLIANCE)
-                    .with_twist_compliance(PLUG_COMPLIANCE),
-            );
-            commands.spawn(
-                DistanceJoint::new(head, previous)
-                    .with_limits(0., CABLE_RADIUS + 0.2 + MAX_DISTANCE),
-            );
-
-            // TODO: Find a proper way to do length.
-            let length: u8 = 10;
-            for i in 1..length {
-                let mut transform = *transform;
-                transform.translation.y -= 0.2 + CABLE_RADIUS;
-                transform.translation.x += f32::from(i) * CABLE_RADIUS * 2.;
-
-                let mut cable = commands.spawn((
-                    RigidBody::Dynamic,
-                    LockedAxes::ROTATION_LOCKED,
-                    MassPropertiesBundle::from_shape(&Sphere::new(CABLE_RADIUS), CABLE_DENSITY),
-                    SceneRoot(cable_scene.clone()),
-                    Propagate(ComesFromRootEntity(root_entity)),
-                    transform,
-                    Name::new(format!("block_loading_{name}_cable_{i}")),
-                    LoadedFromArea(loaded_from_area.0),
-                ));
-                let current = cable.id();
-
-                if i % 6 == 0 {
-                    cable.insert((Collider::sphere(CABLE_RADIUS), collision_layers));
-                } else {
-                    cable.insert(GravityScale(-0.01));
-                }
-
+            // If i is 0, then we need to account for the previous radius.
+            // This is a bad way of accounting for it. All the maths in this function should
+            // be re-worked out.
+            if i == 0 {
                 commands.spawn(
-                    SphericalJoint::new(previous, current)
-                        .with_local_anchor1(Vec3::NEG_Y * CABLE_RADIUS)
-                        .with_local_anchor2(Vec3::Y * CABLE_RADIUS)
-                        .with_point_compliance(CABLE_COMPLIANCE)
-                        .with_swing_compliance(CABLE_COMPLIANCE)
-                        .with_twist_compliance(CABLE_COMPLIANCE),
+                    DistanceJoint::new(saved_previous_entity, state.previous_entity).with_limits(
+                        0.,
+                        state.previous_radius + state.config.gap_between_points + state.radius,
+                    ),
                 );
+            } else {
                 commands.spawn(
-                    DistanceJoint::new(previous, current)
-                        .with_limits(0., CABLE_RADIUS * 2. + MAX_DISTANCE),
+                    DistanceJoint::new(saved_previous_entity, state.previous_entity)
+                        .with_limits(0., state.radius * 2. + state.config.gap_between_points),
                 );
-
-                previous = current;
-                select_others.push(previous);
             }
 
-            let tail_joint = commands.spawn_empty().id();
-
-            let mut tail_transform = *transform;
-            tail_transform.translation.x += f32::from(length - 1) * CABLE_RADIUS * 2.;
-
-            let tail = commands
-                .entity(tail)
-                .insert((
-                    Plug {
-                        outlet_sensors_within_range: vec![],
-                        dragged: false,
-                        outlet_sensor_connected_to: None,
-                        joint: tail_joint,
-                        other_end: head,
-                    },
-                    RigidBody::Dynamic,
-                    MassPropertiesBundle::from_shape(&Cuboid::new(0.8, 0.4, 0.8), PLUG_DENSITY),
-                    Collider::cuboid(0.8, 0.4, 0.8),
-                    collision_layers,
-                    SceneRoot(plug_scene.clone()),
-                    Propagate(ComesFromRootEntity(root_entity)),
-                    tail_transform,
-                    Interactable,
-                    Dragged::default(),
-                    SelectOthers(select_others.clone()),
-                    Name::new(format!("block_loading_{name}_tail")),
-                    LoadedFromArea(loaded_from_area.0),
-                ))
-                .observe(drag_start)
-                .observe(drag_end)
-                .id();
-
-            commands.spawn(
-                SphericalJoint::new(previous, tail)
-                    .with_local_anchor1(Vec3::Y * CABLE_RADIUS)
-                    .with_local_anchor2(Vec3::NEG_Y * 0.2)
-                    .with_point_compliance(PLUG_COMPLIANCE)
-                    .with_swing_compliance(PLUG_COMPLIANCE)
-                    .with_twist_compliance(PLUG_COMPLIANCE),
-            );
-            commands.spawn(
-                DistanceJoint::new(previous, tail)
-                    .with_limits(0., CABLE_RADIUS + 0.2 + MAX_DISTANCE),
-            );
-
-            commands
-                .entity(root_entity)
-                .insert(SelectOthers(select_others));
+            state.previous_translation = point_translation;
         }
+
+        state.previous_radius = state.radius;
     }
 }
-*/
+
+pub struct ChainOperationRigidBody<T> {
+    previous: T,
+    rigid_body: RigidBody,
+}
+
+impl<T: ChainOperation> ChainOperation for ChainOperationRigidBody<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+        state.config.rigid_body = self.rigid_body;
+    }
+}
+
+pub struct ChainOperationGravityOverride<T> {
+    previous: T,
+    acceleration: Vec3,
+}
+
+impl<T: ChainOperation> ChainOperation for ChainOperationGravityOverride<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+        state.config.gravity_override = Some(self.acceleration);
+    }
+}
+
+pub struct ChainOperationMesh<T> {
+    previous: T,
+    mesh: &'static str,
+    radius: f32,
+}
+
+impl<T: ChainOperation> ChainOperation for ChainOperationMesh<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+        state.radius = self.radius;
+        state.mesh = asset_server.load(format!("{}/mesh.glb#Scene0", self.mesh));
+    }
+}
+
+pub struct ChainOperationOne<T> {
+    previous: T,
+    direction: Vec3,
+}
+
+impl<T: ChainOperation> ChainOperation for ChainOperationOne<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+
+        let last_final_translation = state.previous_translation;
+
+        // radius gap radius?
+        let point_translation =
+            (state.previous_radius + state.config.gap_between_points + state.radius)
+                * self.direction
+                + last_final_translation;
+
+        let saved_previous_entity = state.previous_entity;
+
+        let mut previous_entity = commands.spawn_empty();
+        state.insert_point_bundle(&mut previous_entity, point_translation, ());
+        (state.config.alter)(&mut previous_entity);
+        state.previous_entity = previous_entity.id();
+
+        commands.spawn(
+            DistanceJoint::new(saved_previous_entity, state.previous_entity).with_limits(
+                0.,
+                state.previous_radius + state.config.gap_between_points + state.radius,
+            ),
+        );
+
+        state.previous_translation = point_translation;
+
+        state.previous_radius = state.radius;
+    }
+}

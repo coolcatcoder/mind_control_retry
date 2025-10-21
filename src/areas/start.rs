@@ -3,7 +3,7 @@ use avian3d::prelude::*;
 pub use crate::bevy_prelude::*;
 use crate::{
     areas::{Area, AreaLoadedEntity},
-    chain::ChainConfig,
+    chain::{ChainOperation, FUNGUS_PURPLE_GLOW, fungus_a},
     editor::editor,
     physics::Accelerate,
 };
@@ -27,98 +27,13 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
         brightness: 60.,
         ..default()
     });
-
-    let first = ChainConfig {
-        mesh: "fungus_purple_glow",
-        gap_between_points: -0.01,
-        radius: 0.05,
-        gravity_scale: 0.,
-        rigid_body: RigidBody::Static,
-        mass: 0.05,
-        alter: |_| {},
-    };
-
-    let middle = ChainConfig {
-        rigid_body: RigidBody::Dynamic,
-        alter: |commands| {
-            commands.insert(PointLight {
-                color: Color::srgb(0.937, 0.149, 0.941),
-                intensity: 1000.,
-                radius: 0.5,
-                range: 5.,
-                shadows_enabled: false,
-                ..default()
-            });
-        },
-        ..first
-    };
-
-    let last = ChainConfig {
-        rigid_body: RigidBody::Dynamic,
-        gravity_scale: -1.,
-        ..first
-    };
-
-    let mut stem = first.start(
-        &mut commands,
-        &asset_server,
-        Vec3::new(-1.6973115, 0.41313428, 0.23011196),
-    );
-    stem.configure(&middle)
-        .to(Vec3::new(-1.6973115, 1., 0.23011196))
-        .configure(&last)
-        .one();
-    let stem_state = stem.state.clone();
-
-    let branch_1 = ChainConfig {
-        rigid_body: RigidBody::Dynamic,
-        alter: |commands| {
-            commands.insert(Accelerate(Vec3::new(-1.5, 1., 0.)));
-        },
-        ..first
-    };
-    stem.configure(&branch_1)
-    .to(Vec3::new(-1.6973115 + -0.25, 2., 0.23011196));
-
-    stem.state = stem_state.clone();
-    let branch_2 = ChainConfig {
-        rigid_body: RigidBody::Dynamic,
-        alter: |commands| {
-            commands.insert(Accelerate(Vec3::new(-1., 1.5, 0.)));
-        },
-        ..first
-    };
-    stem.configure(&branch_2)
-    .to(Vec3::new(-1.6973115 + -0.25, 2.2, 0.23011196));
-
-    stem.state = stem_state.clone();
-    let branch_3 = ChainConfig {
-        rigid_body: RigidBody::Dynamic,
-        alter: |commands| {
-            commands.insert(Accelerate(Vec3::new(1., 1.5, 0.)));
-        },
-        ..first
-    };
-    stem.configure(&branch_3)
-    .to(Vec3::new(-1.6973115 + 0.25, 2.2, 0.23011196));
-
-    stem.state = stem_state;
-    stem.configure(&ChainConfig {
-        rigid_body: RigidBody::Dynamic,
-        alter: |commands| {
-            commands.insert(Accelerate(Vec3::new(1.5, 1., 0.)));
-        },
-        ..first
-    })
-    .to(Vec3::new(-1.6973115 + 0.25, 2., 0.23011196));
-
-    //.to(Vec3::new(2., 2., 1.));
 }
 
 fn full_patch(
     on: On<AreaLoadedEntity>,
     mut loaded: Query<(&Name, &Transform)>,
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
     let (name, transform) = loaded
         .get_mut(on.loaded)
@@ -137,8 +52,7 @@ fn full_patch(
                 RigidBody::Dynamic,
             ));
         }
-        "mushroom" => {
-            info!("{}", transform.translation);
+        "mushroom pot" => {
             commands.entity(on.loaded).insert(PointLight {
                 color: Color::srgb(0.937, 0.149, 0.941),
                 intensity: 5000.,
@@ -147,6 +61,38 @@ fn full_patch(
                 shadows_enabled: false,
                 ..default()
             });
+
+            let translation = transform.translation + Vec3::new(0., 0.1, 0.);
+
+            let stem = FUNGUS_PURPLE_GLOW
+                .rigid_body(RigidBody::Static)
+                .start(translation)
+                .rigid_body(RigidBody::Dynamic)
+                .gravity_override(Vec3::ZERO)
+                .to(translation + Vec3::Y * 0.5)
+                .gravity_override(Vec3::Y * 1.5)
+                .one(Vec3::Y)
+                .gravity_override(Vec3::ZERO)
+                .run(&asset_server, &mut commands);
+
+            stem.clone()
+                .to(translation + Vec3::new(0., 1., 0.5))
+                .gravity_override(Vec3::new(-0.5, 1., 1.5))
+                .mesh(fungus_a::CAP)
+                .one(Vec3::Y)
+                .run(&asset_server, &mut commands);
+
+            stem.clone().to(translation + Vec3::new(0.5, 1.3, 0.))
+                .gravity_override(Vec3::new(1.5, 1., 0.))
+                .mesh(fungus_a::CAP)
+                .one(Vec3::Y)
+                .run(&asset_server, &mut commands);
+
+            stem.to(translation + Vec3::Y * 1.5)
+                .gravity_override(Vec3::new(0., 1.5, 0.))
+                .mesh(fungus_a::CAP)
+                .one(Vec3::Y)
+                .run(&asset_server, &mut commands);
         }
         _ => (),
     }

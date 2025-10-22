@@ -16,3 +16,19 @@ camera height must be above room height
 
 
 b1 * c2
+
+
+small pot:
+radius: 0.035
+height: 0.07
+
+small pot fungus stem:
+radius: 0.02
+
+small pot fungus cap:
+radius: 0.04
+
+
+seaweed pot:
+radius: 0.05
+height: 0.09

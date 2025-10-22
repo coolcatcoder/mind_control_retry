@@ -5,13 +5,19 @@ use avian3d::prelude::*;
 pub const FUNGUS_PURPLE_GLOW: ChainPointConfigured =
     ChainPointConfigured::new("fungus_purple_glow", 0.05);
 
-pub const SEAWEED: ChainPointConfigured =
-    ChainPointConfigured::new("seaweed", 0.05);
+pub const SEAWEED: ChainPointConfigured = ChainPointConfigured::new("seaweed", 0.05);
 
 pub mod fungus_a {
     use super::ChainPointConfigured;
 
-    pub const CAP: ChainPointConfigured = ChainPointConfigured::new("fungus_a/cap", 0.5 * 0.1);
+    pub const CAP: ChainPointConfigured = ChainPointConfigured::new("fungus_a/cap", 0.5); // * 0.1);
+}
+
+pub mod fungus_small_pot {
+    use super::ChainPointConfigured;
+
+    pub const CAP: ChainPointConfigured = ChainPointConfigured::new("fungus_small_pot/cap", 0.04);
+    pub const STEM: ChainPointConfigured = ChainPointConfigured::new("fungus_small_pot/stem", 0.02);
 }
 
 pub struct ChainPointConfigured {
@@ -158,6 +164,20 @@ pub trait ChainOperation: Sized {
             radius: mesh.radius,
         }
     }
+
+    fn gap_between_points(self, gap_between_points: f32) -> ChainOperationGapBetweenPoints<Self> {
+        ChainOperationGapBetweenPoints {
+            previous: self,
+            gap_between_points,
+        }
+    }
+
+    fn alter(self, alter: fn(&mut EntityCommands<'_>)) -> ChainOperationAlter<Self> {
+        ChainOperationAlter {
+            previous: self,
+            alter,
+        }
+    }
 }
 
 pub struct ChainOperationStart {
@@ -192,8 +212,6 @@ impl ChainOperation for ChainOperationStart {
         state.insert_point_bundle(&mut previous_entity, self.translation, ());
         (state.config.alter)(&mut previous_entity);
         state.previous_entity = previous_entity.id();
-
-        info!("Started!");
     }
 }
 
@@ -302,6 +320,48 @@ impl<T: ChainOperation> ChainOperation for ChainOperationRigidBody<T> {
     ) {
         self.previous.internal_apply(state, commands, asset_server);
         state.config.rigid_body = self.rigid_body;
+    }
+}
+
+pub struct ChainOperationAlter<T> {
+    previous: T,
+    alter: fn(&mut EntityCommands<'_>),
+}
+
+impl<T: ChainOperation> ChainOperation for ChainOperationAlter<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+        state.config.alter = self.alter;
+    }
+}
+
+pub struct ChainOperationGapBetweenPoints<T> {
+    previous: T,
+    gap_between_points: f32,
+}
+
+impl<T: ChainOperation> ChainOperation for ChainOperationGapBetweenPoints<T> {
+    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut ChainOperationState,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+        state.config.gap_between_points = self.gap_between_points;
     }
 }
 

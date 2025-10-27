@@ -3,7 +3,7 @@ use avian3d::prelude::*;
 pub use crate::bevy_prelude::*;
 use crate::{
     areas::{Area, AreaLoadedEntity},
-    chain::{ChainOperation, FUNGUS_PURPLE_GLOW, SEAWEED, fungus_a, fungus_small_pot},
+    chain::{fungus_a, fungus_small_pot, ChainOperation, Holder, FUNGUS_PURPLE_GLOW, SEAWEED},
     editor::editor,
 };
 
@@ -43,7 +43,7 @@ fn full_patch(
     if name.contains("small pot") {
         let translation = transform.translation + Vec3::new(0., 0.035, 0.);
 
-        fungus_small_pot::STEM
+        Holder(fungus_small_pot::STEM)
             .rigid_body(RigidBody::Static)
             .start(translation)
             .rigid_body(RigidBody::Dynamic)

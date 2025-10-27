@@ -313,7 +313,8 @@ impl<P: ChainOperation> ChainOperation for ChainOperationStart<P> {
         self.previous.internal_start(asset_server)
     }
 
-    fn internal_apply(self, state: &mut State, commands: &mut Commands, _: &AssetServer) {
+    fn internal_apply(self, state: &mut State, commands: &mut Commands, asset_server: &AssetServer) {
+        self.previous.internal_apply(state, commands, asset_server);
         state.previous_translation = self.translation;
         let mut previous_entity = commands.spawn_empty();
         state.insert_point_bundle(&mut previous_entity, self.translation, ());
@@ -337,3 +338,254 @@ impl ChainOperation for ChainOperationFinished {
 
     fn internal_apply(self, _: &mut State, _: &mut Commands, _: &AssetServer) {}
 }
+
+trait NewOperation {
+    fn internal_start(&self, asset_server: &AssetServer) -> State;
+
+    fn internal_apply(self, state: &mut State, commands: &mut Commands, asset_server: &AssetServer);
+}
+
+pub struct Holder<T>(pub T);
+
+pub struct Start<P> {
+    previous: P,
+    translation: Vec3,
+}
+
+impl<P: NewOperation> NewOperation for Start<P> {
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(self, state: &mut State, commands: &mut Commands, _: &AssetServer) {
+        state.previous_translation = self.translation;
+        let mut previous_entity = commands.spawn_empty();
+        state.insert_point_bundle(&mut previous_entity, self.translation, ());
+        (state.alter)(&mut previous_entity);
+        state.previous_entity = previous_entity.id();
+    }
+}
+
+impl<T> Holder<T> {
+    pub fn start(self, pos: Vec3) -> Holder<Start<T>> {
+        Holder(Start {
+            previous: self.0,
+            translation: pos,
+        })
+    }
+}
+
+impl NewOperation for Point {
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        State {
+            mesh_handle: asset_server.load(format!("{}/mesh.glb#Scene0", self.mesh)),
+            cheap_state: CheapState {
+                previous_entity: Entity::PLACEHOLDER,
+                previous_translation: Vec3::NAN,
+                previous_radius: self.radius,
+
+                mesh_path: self.mesh,
+
+                radius: self.radius,
+                gap_between_points: 0.,
+                gravity_override: None,
+                rigid_body: RigidBody::Dynamic,
+                mass: 0.05,
+                alter: |_| {},
+            },
+        }
+    }
+
+    fn internal_apply(self, _: &mut State, _: &mut Commands, _: &AssetServer) {}
+}
+
+#[derive(Clone, Copy)]
+pub struct Finished {
+    state: CheapState,
+}
+
+impl NewOperation for Finished {
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        State {
+            cheap_state: self.state,
+            mesh_handle: asset_server.load(format!("{}/mesh.glb#Scene0", self.state.mesh_path)),
+        }
+    }
+
+    fn internal_apply(self, _: &mut State, _: &mut Commands, _: &AssetServer) {}
+}
+
+impl<T: NewOperation> Holder<T> {
+    pub fn run(self, asset_server: &AssetServer, commands: &mut Commands) -> Holder<Finished> {
+        let mut state = self.0.internal_start(asset_server);
+        self.0.internal_apply(&mut state, commands, asset_server);
+
+        Holder(Finished {
+            state: state.cheap_state,
+        })
+    }
+}
+
+macro_rules! operation {
+    ([$name:ident] $operation:ident, $($parameter:ident: $parameter_type:ty),* {$($body:tt)*}) => {
+        mod $name {
+            use super::*;
+
+            pub struct Operation<P> {
+                previous: P,
+                $($parameter: $parameter_type),*
+            }
+
+            impl<T> super::Holder<T> {
+                pub fn $name(self, $($parameter: $parameter_type),*) -> super::Holder<Operation<T>> {
+                    super::Holder(Operation {
+                        previous: self.0,
+                        $($parameter),*
+                    })
+                }
+            }
+
+            impl<P: NewOperation> NewOperation for Operation<P> {
+                fn internal_start(&self, asset_server: &AssetServer) -> State {
+                    self.previous.internal_start(asset_server)
+                }
+
+                fn internal_apply(
+                    self,
+                    state: &mut State,
+                    commands: &mut Commands,
+                    asset_server: &AssetServer,
+                ) {
+                    struct CurrentOperation<'sr, 'ar, 'cr, 'w, 's> {
+                        state: &'sr mut State,
+                        #[allow(dead_code)]
+                        asset_server: &'ar AssetServer,
+                        #[allow(dead_code)]
+                        commands: &'cr mut Commands<'w, 's>,
+                        $($parameter: $parameter_type),*
+                    }
+
+                    self.previous.internal_apply(state, commands, asset_server);
+
+                    let $operation = CurrentOperation {
+                        state,
+                        commands,
+                        asset_server,
+                        $($parameter: self.$parameter),*
+                    };
+                    $($body)*
+                }
+            }
+        }
+    };
+
+    ($name:ident, $($parameter:ident: $parameter_type:ty),* {$($body:tt)*}) => {
+        operation!([$name] $name, $($parameter: $parameter_type),* {$($body)*});
+    };
+}
+
+operation!([to] state, pos: Vec3 {
+    let direction = (state.pos - state.state.previous_translation).normalize_or_zero();
+
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
+    let quantity = (state.pos.distance(state.state.previous_translation)
+        / (state.state.radius + state.state.gap_between_points + state.state.radius))
+        .floor() as u16;
+
+    let last_final_translation = state.state.previous_translation;
+
+    for i in 0..quantity {
+        // radius gap radius?
+        let point_translation = (state.state.previous_radius
+            + state.state.gap_between_points
+            + state.state.radius
+            + (f32::from(i) * (state.state.radius + state.state.gap_between_points + state.state.radius)))
+            * direction
+            + last_final_translation;
+
+        let saved_previous_entity = state.state.previous_entity;
+
+        let mut previous_entity = state.commands.spawn_empty();
+        state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
+        (state.state.alter)(&mut previous_entity);
+        state.state.previous_entity = previous_entity.id();
+
+        // if i % 6 == 0 {
+        //     cable.insert((Collider::sphere(CABLE_RADIUS), collision_layers));
+        // } else {
+        //     cable.insert(GravityScale(-0.01));
+        // }
+
+        // If i is 0, then we need to account for the previous radius.
+        // This is a bad way of accounting for it. All the maths in this function should
+        // be re-worked out.
+        if i == 0 {
+            state.commands.spawn(
+                DistanceJoint::new(saved_previous_entity, state.state.previous_entity).with_limits(
+                    0.,
+                    state.state.previous_radius + state.state.gap_between_points + state.state.radius,
+                ),
+            );
+        } else {
+            state.commands.spawn(
+                DistanceJoint::new(saved_previous_entity, state.state.previous_entity)
+                    .with_limits(0., state.state.radius * 2. + state.state.gap_between_points),
+            );
+        }
+
+        state.state.previous_translation = point_translation;
+    }
+
+    state.state.previous_radius = state.state.radius;
+});
+
+operation!([one] state, dir: Vec3 {
+    let last_final_translation = state.state.previous_translation;
+
+    // radius gap radius?
+    let point_translation =
+        (state.state.previous_radius + state.state.gap_between_points + state.state.radius)
+            * state.dir
+            + last_final_translation;
+
+    let saved_previous_entity = state.state.previous_entity;
+
+    let mut previous_entity = state.commands.spawn_empty();
+    state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
+    (state.state.alter)(&mut previous_entity);
+    state.state.previous_entity = previous_entity.id();
+
+    state.commands.spawn(
+        DistanceJoint::new(saved_previous_entity, state.state.previous_entity).with_limits(
+            0.,
+            state.state.previous_radius + state.state.gap_between_points + state.state.radius,
+        ),
+    );
+
+    state.state.previous_translation = point_translation;
+
+    state.state.previous_radius = state.state.radius;
+});
+
+operation!(rigid_body, rigid_body: RigidBody {
+    rigid_body.state.rigid_body = rigid_body.rigid_body;
+});
+
+operation!([gravity_override] operation, gravity_override: Vec3 {
+    // TO DO: Should this operation take in an Option<Vec3>?
+    operation.state.gravity_override = Some(operation.gravity_override);
+});
+
+operation!([mesh] operation, mesh: Point {
+    operation.state.radius = operation.mesh.radius;
+    operation.state.mesh_handle = operation.asset_server.load(format!("{}/mesh.glb#Scene0", operation.mesh.mesh));
+});
+
+operation!([gap_between_points] operation, gap_between_points: f32 {
+    operation.state.gap_between_points = operation.gap_between_points;
+});
+
+operation!([alter] operation, alter: fn(&mut EntityCommands<'_>) {
+    operation.state.alter = operation.alter;
+});

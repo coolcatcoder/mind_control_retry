@@ -5,7 +5,6 @@ use crate::{
     areas::{Area, AreaLoadedEntity},
     chain::{ChainOperation, FUNGUS_PURPLE_GLOW, SEAWEED, fungus_a, fungus_small_pot},
     editor::editor,
-    physics::Accelerate,
 };
 
 pub const DEVELOP_OVERRIDE: bool = false;
@@ -65,19 +64,19 @@ fn full_patch(
             .gravity_override(Vec3::ZERO)
             .run(&asset_server, &mut commands);
 
-        base.clone()
+        base
             .to(translation + Vec3::Y * 1.5)
             .gravity_override(Vec3::Y * 1.5)
             .one(Vec3::Y)
             .run(&asset_server, &mut commands);
 
-        base.clone()
+        base
             .to(translation + Vec3::Y * 1.5)
             .gravity_override(Vec3::Y * 1.5)
             .one(Vec3::Y)
             .run(&asset_server, &mut commands);
 
-        base.clone()
+        base
             .to(translation + Vec3::Y * 1.5)
             .gravity_override(Vec3::Y * 1.5)
             .one(Vec3::Y)
@@ -131,8 +130,7 @@ fn full_patch(
                 })
                 .run(&asset_server, &mut commands);
 
-            stem.clone()
-                .to(translation + Vec3::new(0., 1., 0.5))
+            stem.to(translation + Vec3::new(0., 1., 0.5))
                 .gravity_override(Vec3::new(-0.5, 1., 1.5))
                 .mesh(fungus_a::CAP)
                 .gap_between_points(-0.5)
@@ -140,8 +138,7 @@ fn full_patch(
                 .one(Vec3::Y)
                 .run(&asset_server, &mut commands);
 
-            stem.clone()
-                .to(translation + Vec3::new(1.0, 0.9, 0.))
+            stem.to(translation + Vec3::new(1.0, 0.9, 0.))
                 .gravity_override(Vec3::new(2.0, 1., 0.))
                 .mesh(fungus_a::CAP)
                 .gap_between_points(-0.5)

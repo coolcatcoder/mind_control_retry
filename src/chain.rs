@@ -1,88 +1,100 @@
+use std::ops::{Deref, DerefMut};
+
 pub use crate::bevy_prelude::*;
 use crate::physics::{Accelerate, CollisionLayer};
 use avian3d::prelude::*;
 
-pub const FUNGUS_PURPLE_GLOW: ChainPointConfigured =
-    ChainPointConfigured::new("fungus_purple_glow", 0.05);
+pub const FUNGUS_PURPLE_GLOW: Point = Point::new("fungus_purple_glow", 0.05);
 
-pub const SEAWEED: ChainPointConfigured = ChainPointConfigured::new("seaweed", 0.05);
+pub const SEAWEED: Point = Point::new("seaweed", 0.05);
 
 pub mod fungus_a {
-    use super::ChainPointConfigured;
+    use super::Point;
 
-    pub const CAP: ChainPointConfigured = ChainPointConfigured::new("fungus_a/cap", 0.5); // * 0.1);
+    pub const CAP: Point = Point::new("fungus_a/cap", 0.5); // * 0.1);
 }
 
 pub mod fungus_small_pot {
-    use super::ChainPointConfigured;
+    use super::Point;
 
-    pub const CAP: ChainPointConfigured = ChainPointConfigured::new("fungus_small_pot/cap", 0.04);
-    pub const STEM: ChainPointConfigured = ChainPointConfigured::new("fungus_small_pot/stem", 0.02);
+    pub const CAP: Point = Point::new("fungus_small_pot/cap", 0.04);
+    pub const STEM: Point = Point::new("fungus_small_pot/stem", 0.02);
 }
 
-pub struct ChainPointConfigured {
+pub struct Point {
     mesh: &'static str,
     radius: f32,
-    config: ChainOperationConfig,
 }
 
-impl ChainPointConfigured {
+impl Point {
     const fn new(mesh: &'static str, radius: f32) -> Self {
-        Self {
-            mesh,
-            radius,
-            config: ChainOperationConfig::default(),
-        }
+        Self { mesh, radius }
     }
 }
 
-#[derive(Clone)]
-pub struct ChainOperationConfig {
-    gap_between_points: f32,
-    gravity_override: Option<Vec3>,
-    rigid_body: RigidBody,
-    mass: f32,
-    alter: fn(&mut EntityCommands<'_>),
-}
+impl ChainOperation for Point {
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        State {
+            mesh_handle: asset_server.load(format!("{}/mesh.glb#Scene0", self.mesh)),
+            cheap_state: CheapState {
+                previous_entity: Entity::PLACEHOLDER,
+                previous_translation: Vec3::NAN,
+                previous_radius: self.radius,
 
-impl ChainOperationConfig {
-    const fn default() -> Self {
-        Self {
-            gap_between_points: 0.,
-            gravity_override: None,
-            rigid_body: RigidBody::Dynamic,
-            mass: 0.05,
-            alter: |_| {},
-        }
-    }
-}
+                mesh_path: self.mesh,
 
-impl ChainPointConfigured {
-    pub fn start(self, pos: Vec3) -> ChainOperationStart {
-        ChainOperationStart {
-            chain_point_configured: self,
-            translation: pos,
+                radius: self.radius,
+                gap_between_points: 0.,
+                gravity_override: None,
+                rigid_body: RigidBody::Dynamic,
+                mass: 0.05,
+                alter: |_| {},
+            },
         }
     }
 
-    pub fn rigid_body(mut self, rigid_body: RigidBody) -> Self {
-        self.config.rigid_body = rigid_body;
-        self
-    }
+    fn internal_apply(self, _: &mut State, _: &mut Commands, _: &AssetServer) {}
 }
 
-#[derive(Clone)]
+/// The current state while running.
 pub struct State {
+    cheap_state: CheapState,
+    mesh_handle: Handle<Scene>,
+}
+
+impl Deref for State {
+    type Target = CheapState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cheap_state
+    }
+}
+
+impl DerefMut for State {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.cheap_state
+    }
+}
+
+/// The state that is cheap to copy around.
+#[derive(Clone, Copy)]
+pub struct CheapState {
     previous_entity: Entity,
     previous_translation: Vec3,
     previous_radius: f32,
 
-    mesh_handle: Handle<Scene>,
+    mesh_path: &'static str,
 
-    config: ChainOperationConfig,
+    radius: f32,
+    gap_between_points: f32,
+    gravity_override: Option<Vec3>,
+    rigid_body: RigidBody,
+    mass: f32,
+    // TO DO: This is both too flexible, and too inflexible. Replace when possible.
+    alter: fn(&mut EntityCommands<'_>),
 }
 
-impl ChainOperationState {
+impl State {
     fn insert_point_bundle(
         &self,
         entity_commands: &mut EntityCommands,
@@ -90,11 +102,11 @@ impl ChainOperationState {
         extra: impl Bundle,
     ) {
         entity_commands.insert((
-            SceneRoot(self.mesh.clone()),
+            SceneRoot(self.mesh_handle.clone()),
             Transform::from_translation(translation),
-            self.config.rigid_body,
+            self.rigid_body,
             LockedAxes::ROTATION_LOCKED,
-            Mass(self.config.mass),
+            Mass(self.mass),
             Collider::sphere(self.radius),
             SleepThreshold {
                 linear: 0.01,
@@ -105,7 +117,7 @@ impl ChainOperationState {
             extra,
         ));
 
-        if let Some(gravity_override) = self.config.gravity_override {
+        if let Some(gravity_override) = self.gravity_override {
             entity_commands.insert((GravityScale(0.), Accelerate(gravity_override)));
         }
     }
@@ -120,18 +132,18 @@ macro_rules! operation {
             }
 
             impl<T: ChainOperation> ChainOperation for Operation<T> {
-                fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+                fn internal_start(&self, asset_server: &AssetServer) -> State {
                     self.previous.internal_start(asset_server)
                 }
 
                 fn internal_apply(
                     self,
-                    state: &mut ChainOperationState,
+                    state: &mut State,
                     commands: &mut Commands,
                     asset_server: &AssetServer,
                 ) {
                     struct CurrentOperation<'sr, 'ar, 'cr, 'w, 's> {
-                        state: &'sr mut ChainOperationState,
+                        state: &'sr mut State,
                         #[allow(dead_code)]
                         asset_server: &'ar AssetServer,
                         #[allow(dead_code)]
@@ -159,67 +171,29 @@ macro_rules! operation {
     };
 
     ($name:ident, $($parameter:ident: $parameter_type:ty),* {$($body:tt)*}) => {
-        fn $name(self, $($parameter: $parameter_type),*) -> impl ChainOperation {
-            pub struct Operation<T> {
-                previous: T,
-                $($parameter: $parameter_type),*
-            }
-
-            impl<T: ChainOperation> ChainOperation for Operation<T> {
-                fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-                    self.previous.internal_start(asset_server)
-                }
-
-                fn internal_apply(
-                    self,
-                    state: &mut ChainOperationState,
-                    commands: &mut Commands,
-                    asset_server: &AssetServer,
-                ) {
-                    struct CurrentOperation<'sr, 'ar, 'cr, 'w, 's> {
-                        state: &'sr mut ChainOperationState,
-                        #[allow(dead_code)]
-                        asset_server: &'ar AssetServer,
-                        #[allow(dead_code)]
-                        commands: &'cr mut Commands<'w, 's>,
-                        $($parameter: $parameter_type),*
-                    }
-
-                    self.previous.internal_apply(state, commands, asset_server);
-
-                    let $name = CurrentOperation {
-                        state,
-                        commands,
-                        asset_server,
-                        $($parameter: self.$parameter),*
-                    };
-                    $($body)*
-                }
-            }
-
-            Operation {
-                previous: self,
-                $($parameter),*
-            }
-        }
+        operation!([$name] $name, $($parameter: $parameter_type),* {$($body)*});
     };
 }
 
 pub trait ChainOperation: Sized {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState;
+    fn internal_start(&self, asset_server: &AssetServer) -> State;
 
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    );
+    fn internal_apply(self, state: &mut State, commands: &mut Commands, asset_server: &AssetServer);
+
+    fn start(self, pos: Vec3) -> ChainOperationStart<Self> {
+        ChainOperationStart {
+            previous: self,
+            translation: pos,
+        }
+    }
 
     fn run(self, asset_server: &AssetServer, commands: &mut Commands) -> ChainOperationFinished {
         let mut state = self.internal_start(asset_server);
         self.internal_apply(&mut state, commands, asset_server);
 
-        ChainOperationFinished { state }
+        ChainOperationFinished {
+            state: state.cheap_state,
+        }
     }
 
     operation!([to] state, pos: Vec3 {
@@ -228,7 +202,7 @@ pub trait ChainOperation: Sized {
         #[allow(clippy::cast_possible_truncation)]
         #[allow(clippy::cast_sign_loss)]
         let quantity = (state.pos.distance(state.state.previous_translation)
-            / (state.state.radius + state.state.config.gap_between_points + state.state.radius))
+            / (state.state.radius + state.state.gap_between_points + state.state.radius))
             .floor() as u16;
 
         let last_final_translation = state.state.previous_translation;
@@ -236,9 +210,9 @@ pub trait ChainOperation: Sized {
         for i in 0..quantity {
             // radius gap radius?
             let point_translation = (state.state.previous_radius
-                + state.state.config.gap_between_points
+                + state.state.gap_between_points
                 + state.state.radius
-                + (f32::from(i) * (state.state.radius + state.state.config.gap_between_points + state.state.radius)))
+                + (f32::from(i) * (state.state.radius + state.state.gap_between_points + state.state.radius)))
                 * direction
                 + last_final_translation;
 
@@ -246,7 +220,7 @@ pub trait ChainOperation: Sized {
 
             let mut previous_entity = state.commands.spawn_empty();
             state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
-            (state.state.config.alter)(&mut previous_entity);
+            (state.state.alter)(&mut previous_entity);
             state.state.previous_entity = previous_entity.id();
 
             // if i % 6 == 0 {
@@ -262,13 +236,13 @@ pub trait ChainOperation: Sized {
                 state.commands.spawn(
                     DistanceJoint::new(saved_previous_entity, state.state.previous_entity).with_limits(
                         0.,
-                        state.state.previous_radius + state.state.config.gap_between_points + state.state.radius,
+                        state.state.previous_radius + state.state.gap_between_points + state.state.radius,
                     ),
                 );
             } else {
                 state.commands.spawn(
                     DistanceJoint::new(saved_previous_entity, state.state.previous_entity)
-                        .with_limits(0., state.state.radius * 2. + state.state.config.gap_between_points),
+                        .with_limits(0., state.state.radius * 2. + state.state.gap_between_points),
                 );
             }
 
@@ -283,7 +257,7 @@ pub trait ChainOperation: Sized {
 
         // radius gap radius?
         let point_translation =
-            (state.state.previous_radius + state.state.config.gap_between_points + state.state.radius)
+            (state.state.previous_radius + state.state.gap_between_points + state.state.radius)
                 * state.dir
                 + last_final_translation;
 
@@ -291,13 +265,13 @@ pub trait ChainOperation: Sized {
 
         let mut previous_entity = state.commands.spawn_empty();
         state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
-        (state.state.config.alter)(&mut previous_entity);
+        (state.state.alter)(&mut previous_entity);
         state.state.previous_entity = previous_entity.id();
 
         state.commands.spawn(
             DistanceJoint::new(saved_previous_entity, state.state.previous_entity).with_limits(
                 0.,
-                state.state.previous_radius + state.state.config.gap_between_points + state.state.radius,
+                state.state.previous_radius + state.state.gap_between_points + state.state.radius,
             ),
         );
 
@@ -307,72 +281,59 @@ pub trait ChainOperation: Sized {
     });
 
     operation!(rigid_body, rigid_body: RigidBody {
-        rigid_body.state.config.rigid_body = rigid_body.rigid_body;
+        rigid_body.state.rigid_body = rigid_body.rigid_body;
     });
 
     operation!([gravity_override] operation, gravity_override: Vec3 {
         // TO DO: Should this operation take in an Option<Vec3>?
-        operation.state.config.gravity_override = Some(operation.gravity_override);
+        operation.state.gravity_override = Some(operation.gravity_override);
     });
 
-    operation!([mesh] operation, mesh: ChainPointConfigured {
+    operation!([mesh] operation, mesh: Point {
         operation.state.radius = operation.mesh.radius;
-        operation.state.mesh = operation.asset_server.load(format!("{}/mesh.glb#Scene0", operation.mesh.mesh));
+        operation.state.mesh_handle = operation.asset_server.load(format!("{}/mesh.glb#Scene0", operation.mesh.mesh));
     });
 
     operation!([gap_between_points] operation, gap_between_points: f32 {
-        operation.state.config.gap_between_points = operation.gap_between_points;
+        operation.state.gap_between_points = operation.gap_between_points;
     });
 
     operation!([alter] operation, alter: fn(&mut EntityCommands<'_>) {
-        operation.state.config.alter = operation.alter;
+        operation.state.alter = operation.alter;
     });
 }
 
-pub struct ChainOperationStart {
-    chain_point_configured: ChainPointConfigured,
+pub struct ChainOperationStart<P> {
+    previous: P,
     translation: Vec3,
 }
 
-impl ChainOperation for ChainOperationStart {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        ChainOperationState {
-            previous_entity: Entity::PLACEHOLDER,
-            previous_translation: self.translation,
-            previous_radius: self.chain_point_configured.radius,
-
-            mesh: asset_server.load(format!(
-                "{}/mesh.glb#Scene0",
-                self.chain_point_configured.mesh
-            )),
-            radius: self.chain_point_configured.radius,
-
-            config: self.chain_point_configured.config.clone(),
-        }
+impl<P: ChainOperation> ChainOperation for ChainOperationStart<P> {
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        self.previous.internal_start(asset_server)
     }
 
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        _: &AssetServer,
-    ) {
+    fn internal_apply(self, state: &mut State, commands: &mut Commands, _: &AssetServer) {
+        state.previous_translation = self.translation;
         let mut previous_entity = commands.spawn_empty();
         state.insert_point_bundle(&mut previous_entity, self.translation, ());
-        (state.config.alter)(&mut previous_entity);
+        (state.alter)(&mut previous_entity);
         state.previous_entity = previous_entity.id();
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct ChainOperationFinished {
-    state: ChainOperationState,
+    state: CheapState,
 }
 
 impl ChainOperation for ChainOperationFinished {
-    fn internal_start(&self, _: &AssetServer) -> ChainOperationState {
-        self.state.clone()
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        State {
+            cheap_state: self.state,
+            mesh_handle: asset_server.load(format!("{}/mesh.glb#Scene0", self.state.mesh_path)),
+        }
     }
 
-    fn internal_apply(self, _: &mut ChainOperationState, _: &mut Commands, _: &AssetServer) {}
+    fn internal_apply(self, _: &mut State, _: &mut Commands, _: &AssetServer) {}
 }

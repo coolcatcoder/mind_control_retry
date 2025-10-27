@@ -1,5 +1,5 @@
 #![feature(try_trait_v2)]
-#![feature(macro_attr)]
+//#![feature(macro_attr)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::needless_pass_by_value)]
 #![allow(clippy::type_complexity)]

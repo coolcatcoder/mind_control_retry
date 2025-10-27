@@ -72,13 +72,12 @@ impl ChainPointConfigured {
 }
 
 #[derive(Clone)]
-pub struct ChainOperationState {
+pub struct State {
     previous_entity: Entity,
     previous_translation: Vec3,
     previous_radius: f32,
 
-    mesh: Handle<Scene>,
-    radius: f32,
+    mesh_handle: Handle<Scene>,
 
     config: ChainOperationConfig,
 }
@@ -112,6 +111,100 @@ impl ChainOperationState {
     }
 }
 
+macro_rules! operation {
+    ([$name:ident] $operation:ident, $($parameter:ident: $parameter_type:ty),* {$($body:tt)*}) => {
+        fn $name(self, $($parameter: $parameter_type),*) -> impl ChainOperation {
+            pub struct Operation<T> {
+                previous: T,
+                $($parameter: $parameter_type),*
+            }
+
+            impl<T: ChainOperation> ChainOperation for Operation<T> {
+                fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+                    self.previous.internal_start(asset_server)
+                }
+
+                fn internal_apply(
+                    self,
+                    state: &mut ChainOperationState,
+                    commands: &mut Commands,
+                    asset_server: &AssetServer,
+                ) {
+                    struct CurrentOperation<'sr, 'ar, 'cr, 'w, 's> {
+                        state: &'sr mut ChainOperationState,
+                        #[allow(dead_code)]
+                        asset_server: &'ar AssetServer,
+                        #[allow(dead_code)]
+                        commands: &'cr mut Commands<'w, 's>,
+                        $($parameter: $parameter_type),*
+                    }
+
+                    self.previous.internal_apply(state, commands, asset_server);
+
+                    let $operation = CurrentOperation {
+                        state,
+                        commands,
+                        asset_server,
+                        $($parameter: self.$parameter),*
+                    };
+                    $($body)*
+                }
+            }
+
+            Operation {
+                previous: self,
+                $($parameter),*
+            }
+        }
+    };
+
+    ($name:ident, $($parameter:ident: $parameter_type:ty),* {$($body:tt)*}) => {
+        fn $name(self, $($parameter: $parameter_type),*) -> impl ChainOperation {
+            pub struct Operation<T> {
+                previous: T,
+                $($parameter: $parameter_type),*
+            }
+
+            impl<T: ChainOperation> ChainOperation for Operation<T> {
+                fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
+                    self.previous.internal_start(asset_server)
+                }
+
+                fn internal_apply(
+                    self,
+                    state: &mut ChainOperationState,
+                    commands: &mut Commands,
+                    asset_server: &AssetServer,
+                ) {
+                    struct CurrentOperation<'sr, 'ar, 'cr, 'w, 's> {
+                        state: &'sr mut ChainOperationState,
+                        #[allow(dead_code)]
+                        asset_server: &'ar AssetServer,
+                        #[allow(dead_code)]
+                        commands: &'cr mut Commands<'w, 's>,
+                        $($parameter: $parameter_type),*
+                    }
+
+                    self.previous.internal_apply(state, commands, asset_server);
+
+                    let $name = CurrentOperation {
+                        state,
+                        commands,
+                        asset_server,
+                        $($parameter: self.$parameter),*
+                    };
+                    $($body)*
+                }
+            }
+
+            Operation {
+                previous: self,
+                $($parameter),*
+            }
+        }
+    };
+}
+
 pub trait ChainOperation: Sized {
     fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState;
 
@@ -129,55 +222,111 @@ pub trait ChainOperation: Sized {
         ChainOperationFinished { state }
     }
 
-    fn to(self, pos: Vec3) -> ChainOperationTo<Self> {
-        ChainOperationTo {
-            previous: self,
-            translation: pos,
-        }
-    }
+    operation!([to] state, pos: Vec3 {
+        let direction = (state.pos - state.state.previous_translation).normalize_or_zero();
 
-    fn one(self, dir: Vec3) -> ChainOperationOne<Self> {
-        ChainOperationOne {
-            previous: self,
-            direction: dir,
-        }
-    }
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_sign_loss)]
+        let quantity = (state.pos.distance(state.state.previous_translation)
+            / (state.state.radius + state.state.config.gap_between_points + state.state.radius))
+            .floor() as u16;
 
-    fn rigid_body(self, rigid_body: RigidBody) -> ChainOperationRigidBody<Self> {
-        ChainOperationRigidBody {
-            previous: self,
-            rigid_body,
-        }
-    }
+        let last_final_translation = state.state.previous_translation;
 
-    fn gravity_override(self, gravity_override: Vec3) -> ChainOperationGravityOverride<Self> {
-        ChainOperationGravityOverride {
-            previous: self,
-            acceleration: gravity_override,
-        }
-    }
+        for i in 0..quantity {
+            // radius gap radius?
+            let point_translation = (state.state.previous_radius
+                + state.state.config.gap_between_points
+                + state.state.radius
+                + (f32::from(i) * (state.state.radius + state.state.config.gap_between_points + state.state.radius)))
+                * direction
+                + last_final_translation;
 
-    fn mesh(self, mesh: ChainPointConfigured) -> ChainOperationMesh<Self> {
-        ChainOperationMesh {
-            previous: self,
-            mesh: mesh.mesh,
-            radius: mesh.radius,
-        }
-    }
+            let saved_previous_entity = state.state.previous_entity;
 
-    fn gap_between_points(self, gap_between_points: f32) -> ChainOperationGapBetweenPoints<Self> {
-        ChainOperationGapBetweenPoints {
-            previous: self,
-            gap_between_points,
-        }
-    }
+            let mut previous_entity = state.commands.spawn_empty();
+            state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
+            (state.state.config.alter)(&mut previous_entity);
+            state.state.previous_entity = previous_entity.id();
 
-    fn alter(self, alter: fn(&mut EntityCommands<'_>)) -> ChainOperationAlter<Self> {
-        ChainOperationAlter {
-            previous: self,
-            alter,
+            // if i % 6 == 0 {
+            //     cable.insert((Collider::sphere(CABLE_RADIUS), collision_layers));
+            // } else {
+            //     cable.insert(GravityScale(-0.01));
+            // }
+
+            // If i is 0, then we need to account for the previous radius.
+            // This is a bad way of accounting for it. All the maths in this function should
+            // be re-worked out.
+            if i == 0 {
+                state.commands.spawn(
+                    DistanceJoint::new(saved_previous_entity, state.state.previous_entity).with_limits(
+                        0.,
+                        state.state.previous_radius + state.state.config.gap_between_points + state.state.radius,
+                    ),
+                );
+            } else {
+                state.commands.spawn(
+                    DistanceJoint::new(saved_previous_entity, state.state.previous_entity)
+                        .with_limits(0., state.state.radius * 2. + state.state.config.gap_between_points),
+                );
+            }
+
+            state.state.previous_translation = point_translation;
         }
-    }
+
+        state.state.previous_radius = state.state.radius;
+    });
+
+    operation!([one] state, dir: Vec3 {
+        let last_final_translation = state.state.previous_translation;
+
+        // radius gap radius?
+        let point_translation =
+            (state.state.previous_radius + state.state.config.gap_between_points + state.state.radius)
+                * state.dir
+                + last_final_translation;
+
+        let saved_previous_entity = state.state.previous_entity;
+
+        let mut previous_entity = state.commands.spawn_empty();
+        state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
+        (state.state.config.alter)(&mut previous_entity);
+        state.state.previous_entity = previous_entity.id();
+
+        state.commands.spawn(
+            DistanceJoint::new(saved_previous_entity, state.state.previous_entity).with_limits(
+                0.,
+                state.state.previous_radius + state.state.config.gap_between_points + state.state.radius,
+            ),
+        );
+
+        state.state.previous_translation = point_translation;
+
+        state.state.previous_radius = state.state.radius;
+    });
+
+    operation!(rigid_body, rigid_body: RigidBody {
+        rigid_body.state.config.rigid_body = rigid_body.rigid_body;
+    });
+
+    operation!([gravity_override] operation, gravity_override: Vec3 {
+        // TO DO: Should this operation take in an Option<Vec3>?
+        operation.state.config.gravity_override = Some(operation.gravity_override);
+    });
+
+    operation!([mesh] operation, mesh: ChainPointConfigured {
+        operation.state.radius = operation.mesh.radius;
+        operation.state.mesh = operation.asset_server.load(format!("{}/mesh.glb#Scene0", operation.mesh.mesh));
+    });
+
+    operation!([gap_between_points] operation, gap_between_points: f32 {
+        operation.state.config.gap_between_points = operation.gap_between_points;
+    });
+
+    operation!([alter] operation, alter: fn(&mut EntityCommands<'_>) {
+        operation.state.config.alter = operation.alter;
+    });
 }
 
 pub struct ChainOperationStart {
@@ -226,231 +375,4 @@ impl ChainOperation for ChainOperationFinished {
     }
 
     fn internal_apply(self, _: &mut ChainOperationState, _: &mut Commands, _: &AssetServer) {}
-}
-
-pub struct ChainOperationTo<T> {
-    previous: T,
-    translation: Vec3,
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationTo<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-
-        let direction = (self.translation - state.previous_translation).normalize_or_zero();
-
-        #[allow(clippy::cast_possible_truncation)]
-        #[allow(clippy::cast_sign_loss)]
-        let quantity = (self.translation.distance(state.previous_translation)
-            / (state.radius + state.config.gap_between_points + state.radius))
-            .floor() as u16;
-
-        let last_final_translation = state.previous_translation;
-
-        for i in 0..quantity {
-            // radius gap radius?
-            let point_translation = (state.previous_radius
-                + state.config.gap_between_points
-                + state.radius
-                + (f32::from(i) * (state.radius + state.config.gap_between_points + state.radius)))
-                * direction
-                + last_final_translation;
-
-            let saved_previous_entity = state.previous_entity;
-
-            let mut previous_entity = commands.spawn_empty();
-            state.insert_point_bundle(&mut previous_entity, point_translation, ());
-            (state.config.alter)(&mut previous_entity);
-            state.previous_entity = previous_entity.id();
-
-            // if i % 6 == 0 {
-            //     cable.insert((Collider::sphere(CABLE_RADIUS), collision_layers));
-            // } else {
-            //     cable.insert(GravityScale(-0.01));
-            // }
-
-            // If i is 0, then we need to account for the previous radius.
-            // This is a bad way of accounting for it. All the maths in this function should
-            // be re-worked out.
-            if i == 0 {
-                commands.spawn(
-                    DistanceJoint::new(saved_previous_entity, state.previous_entity).with_limits(
-                        0.,
-                        state.previous_radius + state.config.gap_between_points + state.radius,
-                    ),
-                );
-            } else {
-                commands.spawn(
-                    DistanceJoint::new(saved_previous_entity, state.previous_entity)
-                        .with_limits(0., state.radius * 2. + state.config.gap_between_points),
-                );
-            }
-
-            state.previous_translation = point_translation;
-        }
-
-        state.previous_radius = state.radius;
-    }
-}
-
-pub struct ChainOperationRigidBody<T> {
-    previous: T,
-    rigid_body: RigidBody,
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationRigidBody<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-        state.config.rigid_body = self.rigid_body;
-    }
-}
-
-pub struct ChainOperationAlter<T> {
-    previous: T,
-    alter: fn(&mut EntityCommands<'_>),
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationAlter<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-        state.config.alter = self.alter;
-    }
-}
-
-pub struct ChainOperationGapBetweenPoints<T> {
-    previous: T,
-    gap_between_points: f32,
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationGapBetweenPoints<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-        state.config.gap_between_points = self.gap_between_points;
-    }
-}
-
-pub struct ChainOperationGravityOverride<T> {
-    previous: T,
-    acceleration: Vec3,
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationGravityOverride<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-        state.config.gravity_override = Some(self.acceleration);
-    }
-}
-
-pub struct ChainOperationMesh<T> {
-    previous: T,
-    mesh: &'static str,
-    radius: f32,
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationMesh<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-        state.radius = self.radius;
-        state.mesh = asset_server.load(format!("{}/mesh.glb#Scene0", self.mesh));
-    }
-}
-
-pub struct ChainOperationOne<T> {
-    previous: T,
-    direction: Vec3,
-}
-
-impl<T: ChainOperation> ChainOperation for ChainOperationOne<T> {
-    fn internal_start(&self, asset_server: &AssetServer) -> ChainOperationState {
-        self.previous.internal_start(asset_server)
-    }
-
-    fn internal_apply(
-        self,
-        state: &mut ChainOperationState,
-        commands: &mut Commands,
-        asset_server: &AssetServer,
-    ) {
-        self.previous.internal_apply(state, commands, asset_server);
-
-        let last_final_translation = state.previous_translation;
-
-        // radius gap radius?
-        let point_translation =
-            (state.previous_radius + state.config.gap_between_points + state.radius)
-                * self.direction
-                + last_final_translation;
-
-        let saved_previous_entity = state.previous_entity;
-
-        let mut previous_entity = commands.spawn_empty();
-        state.insert_point_bundle(&mut previous_entity, point_translation, ());
-        (state.config.alter)(&mut previous_entity);
-        state.previous_entity = previous_entity.id();
-
-        commands.spawn(
-            DistanceJoint::new(saved_previous_entity, state.previous_entity).with_limits(
-                0.,
-                state.previous_radius + state.config.gap_between_points + state.radius,
-            ),
-        );
-
-        state.previous_translation = point_translation;
-
-        state.previous_radius = state.radius;
-    }
 }

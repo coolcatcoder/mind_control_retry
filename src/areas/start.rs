@@ -3,7 +3,7 @@ use avian3d::prelude::*;
 pub use crate::bevy_prelude::*;
 use crate::{
     areas::{Area, AreaLoadedEntity},
-    chain::{fungus_a, fungus_small_pot, ChainOperation, Holder, FUNGUS_PURPLE_GLOW, SEAWEED},
+    chain::{FUNGUS_PURPLE_GLOW, SEAWEED, fungus_a, fungus_small_pot},
     editor::editor,
 };
 
@@ -43,7 +43,7 @@ fn full_patch(
     if name.contains("small pot") {
         let translation = transform.translation + Vec3::new(0., 0.035, 0.);
 
-        Holder(fungus_small_pot::STEM)
+        fungus_small_pot::STEM
             .rigid_body(RigidBody::Static)
             .start(translation)
             .rigid_body(RigidBody::Dynamic)
@@ -64,20 +64,17 @@ fn full_patch(
             .gravity_override(Vec3::ZERO)
             .run(&asset_server, &mut commands);
 
-        base
-            .to(translation + Vec3::Y * 1.5)
+        base.to(translation + Vec3::Y * 1.5)
             .gravity_override(Vec3::Y * 1.5)
             .one(Vec3::Y)
             .run(&asset_server, &mut commands);
 
-        base
-            .to(translation + Vec3::Y * 1.5)
+        base.to(translation + Vec3::Y * 1.5)
             .gravity_override(Vec3::Y * 1.5)
             .one(Vec3::Y)
             .run(&asset_server, &mut commands);
 
-        base
-            .to(translation + Vec3::Y * 1.5)
+        base.to(translation + Vec3::Y * 1.5)
             .gravity_override(Vec3::Y * 1.5)
             .one(Vec3::Y)
             .run(&asset_server, &mut commands);

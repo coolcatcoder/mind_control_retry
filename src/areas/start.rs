@@ -1,19 +1,26 @@
 use avian3d::prelude::*;
 
-pub use crate::bevy_prelude::*;
 use crate::{
     areas::{Area, AreaLoadedEntity},
     chain::{FUNGUS_PURPLE_GLOW, SEAWEED, fungus_a, fungus_small_pot},
     editor::editor,
 };
+pub use bevy::prelude::*;
 
 pub const DEVELOP_OVERRIDE: bool = false;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, load);
+    //app.add_systems(Startup, load).add_systems(Update, weird);
 
     if DEVELOP_OVERRIDE || crate::DEVELOP {
         editor(file!())(app);
+    }
+}
+
+fn weird(mut counter: Local<u8>) {
+    if *counter < 4 {
+        info!("Frame {}", *counter);
+        *counter += 1;
     }
 }
 
@@ -26,6 +33,8 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
         brightness: 60.,
         ..default()
     });
+
+    info!("Start.");
 }
 
 fn full_patch(

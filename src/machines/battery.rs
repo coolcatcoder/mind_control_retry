@@ -1,5 +1,4 @@
 use crate::{
-    error_handling::ToUnwrapResult,
     machines::{
         outlet::{OutletSensor, OutletSensorEntity},
         power::Energy,

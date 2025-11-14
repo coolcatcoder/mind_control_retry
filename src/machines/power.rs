@@ -2,12 +2,9 @@ use std::num::NonZero;
 
 use bevy::prelude::*;
 
-use crate::{
-    error_handling::ToUnwrapResult,
-    machines::{
-        cable::Plug,
-        outlet::{OutletSensor, OutletSensorEntity},
-    },
+use crate::machines::{
+    cable::Plug,
+    outlet::{OutletSensor, OutletSensorEntity},
 };
 
 pub fn plugin(app: &mut App) {

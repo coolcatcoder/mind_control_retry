@@ -1,5 +1,5 @@
-pub use crate::bevy_prelude::*;
 use crate::machines::player::Player;
+pub use bevy::prelude::*;
 use bevy::{
     app::HierarchyPropagatePlugin, core_pipeline::tonemapping::Tonemapping, light::NotShadowCaster,
     post_process::bloom::Bloom,
@@ -37,8 +37,11 @@ pub struct ComesFromRootEntity(pub Entity);
 const CAMERA_OFFSET: Vec3 = Vec3::new(0., 2.5, 3.);
 
 pub fn spawn_camera(mut commands: Commands, mut clear_colour: ResMut<ClearColor>) {
+    // let h: f32 = 2.5;
+    // let w: f32 = 3.0;
+
     let h: f32 = 2.5;
-    let w: f32 = 3.0;
+    let w: f32 = 5.0;
 
     // Designed by the wondrous gibimicro!
     // https://www.desmos.com/calculator/ytzzv3kpca
@@ -66,12 +69,13 @@ pub fn spawn_camera(mut commands: Commands, mut clear_colour: ResMut<ClearColor>
 }
 
 pub fn camera_follow(
-    follow: Query<&Transform, With<Player>>,
-    mut camera: Query<&mut Transform, (With<Camera>, Without<Player>)>,
-    time: Res<Time>,
+    follow: Query<&Transform, With<crate::areas::grave_yard::Player>>,
+    mut camera: Query<&mut Transform, (With<Camera>, Without<crate::areas::grave_yard::Player>)>,
 ) {
     let follow = follow.single().else_return()?;
     let mut camera = camera.single_mut().else_error("Could not get camera.")?;
+
+    camera.translation.x = follow.translation.x;
 
     // Weird.
     //camera.look_at(Vec3::new(follow.translation.x, 1., 0.), Vec3::Y);

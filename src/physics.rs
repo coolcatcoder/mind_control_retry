@@ -1,25 +1,36 @@
-use crate::plugin_module;
+use crate::plugin_modules;
 use avian3d::prelude::*;
 use bevy::prelude::*;
 use rand::Rng;
 
-plugin_module!(pub scene);
+plugin_modules!(pub scene);
 
 pub mod common_properties;
 
-const DEVELOP_OVERRIDE: bool = false;
+const SHOW_COLLIDERS: bool = true;
+const PAUSE: bool = false;
 
 pub fn plugin(app: &mut App) {
-    if DEVELOP_OVERRIDE || crate::DEVELOP {
-        app.add_plugins(PhysicsDebugPlugin);
+    if SHOW_COLLIDERS {
+        app.add_plugins(PhysicsDebugPlugin)
+        .insert_gizmo_config(
+            PhysicsGizmos {
+                axis_lengths: None,
+                ..default()
+            },
+            GizmoConfig::default(),
+        );
+    }
+    if PAUSE {
+        app.add_systems(Startup, pause);
     }
     app.add_plugins((PhysicsPlugins::default(), plugins_in_modules))
         .add_systems(Update, accelerate);
 }
 
-// fn pause(mut time: ResMut<Time<Physics>>) {
-//     time.pause();
-// }
+fn pause(mut time: ResMut<Time<Physics>>) {
+    time.pause();
+}
 
 #[derive(PhysicsLayer, Default)]
 pub enum CollisionLayer {
@@ -29,7 +40,7 @@ pub enum CollisionLayer {
 }
 
 #[derive(Component)]
-#[require(Sway)]
+#[require(Sway, GravityScale(0.))]
 pub struct Accelerate(pub Vec3);
 
 #[derive(Default, Component)]
@@ -56,6 +67,7 @@ fn accelerate(query: Query<(&Accelerate, &mut Sway, &mut LinearVelocity)>, time:
             sway.seconds_remaining -= time_delta;
         }
 
+        //sway.sway = Vec3::ZERO;
         **linear_velocity += (accelerate.0 + sway.sway) * time_delta;
     }
 }

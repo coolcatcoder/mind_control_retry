@@ -18,7 +18,6 @@ use bevy::{
 };
 use bevy_mod_outline::OutlineVolume;
 
-pub use crate::bevy_prelude::*;
 use crate::{
     areas::{Area, AreaLoadedEntity},
     mouse::{
@@ -27,6 +26,7 @@ use crate::{
     },
     render::ComesFromRootEntity,
 };
+pub use bevy::prelude::*;
 
 const DEVELOP_OVERRIDE: bool = false;
 

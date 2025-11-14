@@ -1,10 +1,10 @@
-pub use crate::bevy_prelude::*;
 use crate::{
     areas::AreaLoadedEntity,
     controls::{Action, Actions},
     creatures::{BasicHorizontalControl, LandHandling, LandHandlingState},
 };
 use avian3d::prelude::*;
+pub use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.add_observer(load).add_systems(Update, control);
@@ -19,6 +19,8 @@ fn load(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
+    // This code needs to be completely re-written.
+    return;
     let name = name
         .get(on.loaded)
         .else_error("Couldn't get loaded entity's name.")?;
@@ -38,6 +40,8 @@ fn load(
         // },
         LockedAxes::ROTATION_LOCKED,
     ));
+
+    info!("player");
 }
 
 fn control(

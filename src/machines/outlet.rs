@@ -3,7 +3,7 @@ use std::num::NonZero;
 use avian3d::prelude::*;
 use bevy::prelude::*;
 
-use crate::{error_handling::ToUnwrapResult, machines::cable::Plug};
+use crate::machines::cable::Plug;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, (within_range, out_of_range, connect));

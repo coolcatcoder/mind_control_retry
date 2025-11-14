@@ -1,13 +1,12 @@
-use crate::{error_handling::ToUnwrapResult, plugin_module};
+pub use bevy::prelude::*;
 use bevy::{
     ecs::{lifecycle::HookContext, world::DeferredWorld},
-    prelude::*,
     scene::SceneInstanceReady,
 };
 
 mod feathers;
 
-plugin_module!(pub start);
+plugin_modules!(pub start, pub grave_yard);
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(plugins_in_modules);
@@ -41,6 +40,7 @@ impl Area {
     }
 
     fn load(on: On<SceneInstanceReady>, children: Query<&Children>, mut commands: Commands) {
+        info!("Done!");
         let scene_children = children
             .get(on.entity)
             .else_error("Failed to get scene children.")?;
@@ -49,9 +49,8 @@ impl Area {
             return;
         }
         let scene_child = scene_children.iter().next().else_return()?;
-        let children = children.get(scene_child).else_return()?;
 
-        children.iter().for_each(|child| {
+        children.iter_descendants(scene_child).for_each(|child| {
             commands.entity(child).insert(LoadedFromArea(on.entity));
         });
     }

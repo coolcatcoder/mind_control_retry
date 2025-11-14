@@ -1,6 +1,5 @@
 use crate::{
     areas::LoadedFromArea,
-    error_handling::ToUnwrapResult,
     machines::outlet::OutletSensor,
     mouse::{Interactable, drag::Dragged, selection::SelectOthers},
     physics::CollisionLayer,

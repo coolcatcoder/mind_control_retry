@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub use crate::bevy_prelude::*;
+pub use bevy::prelude::*;
 use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineMode, OutlineVolume};
 
 const DEVELOP_OVERRIDE: bool = true;

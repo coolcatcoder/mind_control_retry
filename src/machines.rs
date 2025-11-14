@@ -1,4 +1,4 @@
-use crate::plugin_module;
+use crate::plugin_modules;
 use bevy::prelude::*;
 
 pub mod battery;
@@ -8,7 +8,7 @@ pub mod outlet;
 pub mod power;
 pub mod robot;
 
-plugin_module!(pub player);
+plugin_modules!(pub player);
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((

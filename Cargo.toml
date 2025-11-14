@@ -7,7 +7,7 @@ edition = "2024"
 members = ["procedural_macros"]
 
 [dependencies]
-bevy = { version = "0.17.2", default-features = false, features = [
+bevy = { path = "../unkindness", package = "unkindness", version = "0.17.2", default-features = false, features = [
     "bevy_asset",
     "bevy_color",
     "bevy_core_pipeline",
@@ -38,9 +38,11 @@ bevy = { version = "0.17.2", default-features = false, features = [
     "bevy_input_focus",
     "debug",
     "track_location",
+    "error_handling",
+    #"trace",
     ]}
 leafwing-input-manager = "0.18.0"
-avian3d = { git = "https://github.com/Jondolf/avian", features = ["collider-from-mesh"]}
+avian3d = { version = "0.4.1", features = ["collider-from-mesh"]}
 bevy_mod_outline = { path="../bevy_mod_outline_0_17_patching" }
 const-str = "0.7.0"
 serde_json = "1.0.145"

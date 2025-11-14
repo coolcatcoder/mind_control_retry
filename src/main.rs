@@ -17,27 +17,13 @@ use bevy::{
 
 const DEVELOP: bool = false;
 
-/// The prelude for bevy, but slightly modified.
-mod bevy_prelude {
-    pub use bevy::{
-        ecs::{lifecycle::HookContext, world::DeferredWorld},
-        prelude::*,
-    };
-    pub fn plugin(_: &mut App) {}
-    pub fn plugins_in_modules(_: &mut App) {}
-    pub use crate::error_handling::ToUnwrapResult;
-    // pub use crate::gather::bindings::*;
-    pub use crate::plugin_module;
-}
-
 mod gather;
 
-plugin_module!(sync, editor, chain);
+plugin_modules!(sync, editor, chain);
 
 mod areas;
 mod controls;
 mod creatures;
-mod error_handling;
 mod frustum_gizmo;
 mod instantiate;
 mod lost;

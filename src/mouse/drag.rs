@@ -1,6 +1,6 @@
-pub use crate::bevy_prelude::*;
 use crate::render::ComesFromRootEntity;
 use avian3d::prelude::*;
+pub use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Update, move_to_drag);

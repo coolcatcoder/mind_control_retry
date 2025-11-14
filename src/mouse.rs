@@ -1,8 +1,8 @@
-use crate::{bevy_prelude::*, error_handling::ToUnwrapResult};
 use bevy::ecs::{lifecycle::HookContext, world::DeferredWorld};
+use bevy::prelude::*;
 use bevy_mod_outline::{AsyncSceneInheritOutline, OutlineMode, OutlineVolume};
 
-plugin_module!(pub selection, pub drag);
+plugin_modules!(pub selection, pub drag);
 
 pub fn plugin(app: &mut App) {
     plugins_in_modules(app);

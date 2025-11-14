@@ -1,5 +1,4 @@
 use crate::{
-    error_handling::ToUnwrapResult,
     instantiate::Config,
     lost::{change_range, move_towards_single_axis},
     physics::common_properties::AIR_RESISTANCE,

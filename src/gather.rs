@@ -10,22 +10,6 @@ macro_rules! export_type {
     };
 }
 
-#[macro_export]
-macro_rules! plugin_module {
-    ($($visibility:vis $module:ident),*) => {
-        $(
-            $visibility mod $module;
-        )*
-
-        pub fn plugins_in_modules(app: &mut App) {
-            $(
-                $module::plugin(app);
-                $module::plugins_in_modules(app);
-            )*
-        }
-    };
-}
-
 pub trait With<T> {
     type Out;
 }

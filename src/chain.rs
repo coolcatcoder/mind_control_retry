@@ -1,8 +1,8 @@
 use std::ops::{Deref, DerefMut};
 
-pub use crate::bevy_prelude::*;
 use crate::physics::{Accelerate, CollisionLayer};
 use avian3d::prelude::*;
+pub use bevy::prelude::*;
 
 pub const FUNGUS_PURPLE_GLOW: Chain<Point, false> = Chain(Point::new("fungus_purple_glow", 0.05));
 
@@ -19,6 +19,22 @@ pub mod fungus_small_pot {
 
     pub const CAP: Chain<Point, false> = Chain(Point::new("fungus_small_pot/cap", 0.04));
     pub const STEM: Chain<Point, false> = Chain(Point::new("fungus_small_pot/stem", 0.02));
+}
+
+pub mod player_body {
+    use super::{Chain, Point};
+
+    // Mesh isn't important, as this isn't actually getting spawned.
+    pub const MAIN: Chain<Point, false> = Chain(Point::new("fungus_a/cap", 0.15));
+}
+
+pub mod fungal_fallen {
+    use super::{Chain, Point};
+
+    // Mesh isn't important, as this isn't actually getting spawned.
+    pub const ANCHOR: Chain<Point, false> = Chain(Point::new("fungus_a/cap", 0.01));
+    pub const CAP: Chain<Point, false> = Chain(Point::new("fungal_fallen/cap", 0.025));
+    pub const STEM: Chain<Point, false> = Chain(Point::new("fungal_fallen/stem", 0.025));
 }
 
 pub struct Point {
@@ -76,6 +92,7 @@ impl State {
         entity_commands: &mut EntityCommands,
         translation: Vec3,
         extra: impl Bundle,
+        insert_collider: bool,
     ) {
         entity_commands.insert((
             SceneRoot(self.mesh_handle.clone()),
@@ -83,7 +100,6 @@ impl State {
             self.rigid_body,
             LockedAxes::ROTATION_LOCKED,
             Mass(self.mass),
-            Collider::sphere(self.radius),
             SleepThreshold {
                 linear: 0.01,
                 ..default()
@@ -95,6 +111,15 @@ impl State {
 
         if let Some(gravity_override) = self.gravity_override {
             entity_commands.insert((GravityScale(0.), Accelerate(gravity_override)));
+        }
+
+        if insert_collider {
+            entity_commands.insert(Collider::sphere(self.radius));
+        } else {
+            entity_commands.insert(AngularInertia::from_shape(
+                &Collider::sphere(self.radius),
+                self.mass,
+            ));
         }
     }
 }
@@ -117,11 +142,16 @@ impl<P: ChainOperation> ChainOperation for Start<P> {
         self.previous.internal_start(asset_server)
     }
 
-    fn internal_apply(self, state: &mut State, commands: &mut Commands, asset_server: &AssetServer) {
+    fn internal_apply(
+        self,
+        state: &mut State,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
         self.previous.internal_apply(state, commands, asset_server);
         state.previous_translation = self.translation;
         let mut previous_entity = commands.spawn_empty();
-        state.insert_point_bundle(&mut previous_entity, self.translation, ());
+        state.insert_point_bundle(&mut previous_entity, self.translation, (), true);
         (state.alter)(&mut previous_entity);
         state.previous_entity = previous_entity.id();
     }
@@ -132,6 +162,39 @@ impl<T> Chain<T, false> {
         Chain(Start {
             previous: self.0,
             translation: pos,
+        })
+    }
+}
+
+pub struct StartConnectedTo<P> {
+    previous: P,
+    translation: Vec3,
+    entity: Entity,
+}
+
+impl<P: ChainOperation> ChainOperation for StartConnectedTo<P> {
+    fn internal_start(&self, asset_server: &AssetServer) -> State {
+        self.previous.internal_start(asset_server)
+    }
+
+    fn internal_apply(
+        self,
+        state: &mut State,
+        commands: &mut Commands,
+        asset_server: &AssetServer,
+    ) {
+        self.previous.internal_apply(state, commands, asset_server);
+        state.previous_translation = self.translation;
+        state.previous_entity = self.entity;
+    }
+}
+
+impl<T> Chain<T, false> {
+    pub fn start_connected_to(self, pos: Vec3, entity: Entity) -> Chain<StartConnectedTo<T>, true> {
+        Chain(StartConnectedTo {
+            previous: self.0,
+            translation: pos,
+            entity,
         })
     }
 }
@@ -277,7 +340,7 @@ operation!([to] state, pos: Vec3 {
         let saved_previous_entity = state.state.previous_entity;
 
         let mut previous_entity = state.commands.spawn_empty();
-        state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
+        state.state.insert_point_bundle(&mut previous_entity, point_translation, (), i % 6 == 0);
         (state.state.alter)(&mut previous_entity);
         state.state.previous_entity = previous_entity.id();
 
@@ -322,7 +385,7 @@ operation!([one] state, dir: Vec3 {
     let saved_previous_entity = state.state.previous_entity;
 
     let mut previous_entity = state.commands.spawn_empty();
-    state.state.insert_point_bundle(&mut previous_entity, point_translation, ());
+    state.state.insert_point_bundle(&mut previous_entity, point_translation, (), true);
     (state.state.alter)(&mut previous_entity);
     state.state.previous_entity = previous_entity.id();
 

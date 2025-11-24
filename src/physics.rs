@@ -7,13 +7,12 @@ plugin_modules!(pub scene);
 
 pub mod common_properties;
 
-const SHOW_COLLIDERS: bool = true;
+const SHOW_COLLIDERS: bool = false;
 const PAUSE: bool = false;
 
 pub fn plugin(app: &mut App) {
     if SHOW_COLLIDERS {
-        app.add_plugins(PhysicsDebugPlugin)
-        .insert_gizmo_config(
+        app.add_plugins(PhysicsDebugPlugin).insert_gizmo_config(
             PhysicsGizmos {
                 axis_lengths: None,
                 ..default()

@@ -51,7 +51,7 @@ impl Area {
         let scene_child = scene_children.iter().next().else_return()?;
 
         children.iter_descendants(scene_child).for_each(|child| {
-            commands.entity(child).insert(LoadedFromArea(on.entity));
+            commands.entity(child).try_insert(LoadedFromArea(on.entity));
         });
     }
 }

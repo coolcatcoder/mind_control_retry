@@ -2,19 +2,99 @@ use crate::{
     areas::{Area, AreaLoadedEntity},
     chain::{FUNGUS_PURPLE_GLOW, fungus_a, player_body},
     controls::{Action, Actions},
-    physics::Accelerate,
+    physics::{Accelerate, CollisionLayer},
 };
 use avian3d::prelude::*;
 pub use bevy::prelude::*;
 
+mod maze {
+    use super::*;
+
+    pub fn load(on: On<AreaLoadedEntity>, loaded: Query<&Name>, mut commands: Commands) {
+        let name = loaded
+            .get(on.loaded)
+            .else_error("Could not get components on loaded entity.")?;
+
+        if name.contains("box") {
+            commands
+                .entity(on.loaded)
+                .insert((RigidBody::Static, Collider::cuboid(0.4, 0.3, 0.4)));
+        }
+    }
+}
+
+mod edge_mushrooms {
+    use super::*;
+
+    pub fn load(
+        on: On<AreaLoadedEntity>,
+        loaded: Query<(&Name, &Transform, &Children)>,
+        area_transforms: Query<&Transform>,
+        stem: Query<(&Transform, &Children)>,
+        cap_transforms: Query<&Transform, Without<Mesh3d>>,
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+    ) {
+        let (name, local_transform, children) = loaded.get(on.loaded).else_return()?;
+        let area_transform = area_transforms
+            .get(on.area)
+            .else_error("Could not get area transform.")?;
+
+        let translation = local_transform.translation + area_transform.translation;
+
+        if !name.contains("mushroom on edge") {
+            return;
+        }
+
+        let mut stem_transform_and_children = None;
+
+        for stem_entity in children.iter() {
+            if let Ok(got) = stem.get(stem_entity) {
+                stem_transform_and_children = Some(got);
+                break;
+            }
+        }
+
+        let (stem_transform, stem_children) =
+            stem_transform_and_children.else_error("No child's transform and children.")?;
+        let stem_translation = stem_transform.translation + translation;
+
+        let caps = stem_children
+            .iter()
+            .filter_map(|cap| {
+                let Ok(cap_transform) = cap_transforms.get(cap) else {
+                    return None;
+                };
+                Some((cap_transform.translation + stem_translation, cap_transform.translation))
+            })
+            .collect();
+
+        // Remove the default cube.
+        commands.entity(on.loaded).despawn();
+
+        light_shroom(
+            translation,
+            stem_translation,
+            caps,
+            &asset_server,
+            &mut commands,
+        );
+    }
+}
+
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, load)
-        .add_systems(Update, (control, link_descendants, lock_in_place, light_fade));
+    app.add_systems(Startup, load).add_systems(
+        Update,
+        (control, link_descendants, lock_in_place, light_fade),
+    );
 }
 
 fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
     let scene = asset_server.load("grave_yard/mesh.glb#Scene0");
-    commands.spawn((SceneRoot(scene), Area));
+    commands
+        .spawn((SceneRoot(scene), Area))
+        .observe(maze::load)
+        .observe(edge_mushrooms::load);
 
     // Floor.
     commands.spawn((
@@ -28,6 +108,7 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
         RigidBody::Static,
         Collider::cuboid(50., 2., 0.2),
         Transform::from_translation(Vec3(0., 0., -0.1)),
+        CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default),
     ));
 
     // Front fence.
@@ -35,6 +116,7 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
         RigidBody::Static,
         Collider::cuboid(50., 2., 0.2),
         Transform::from_translation(Vec3(0., 0., 5.1)),
+        CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default),
     ));
 
     // Right Wall.
@@ -42,11 +124,13 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
         RigidBody::Static,
         Collider::cuboid(0.2, 2., 2.5),
         Transform::from_translation(Vec3(5.1, 0., 1.25)),
+        CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default),
     ));
     commands.spawn((
         RigidBody::Static,
         Collider::cuboid(0.2, 2., 2.5),
         Transform::from_translation(Vec3(5.1, 0., 4.75)),
+        CollisionLayers::new(CollisionLayer::Cable, CollisionLayer::Default),
     ));
 
     let player_scene = asset_server.load("player/mesh.glb#Scene0");
@@ -62,73 +146,75 @@ fn load(asset_server: Res<AssetServer>, mut commands: Commands) {
             Control,
             Player,
         ))
-        .observe(player);    
+        .observe(player);
 
     spawn_fungal_fallen(Vec3(2.5, 0., 2.5), &asset_server, &mut commands);
     spawn_fungal_fallen(Vec3(-0.3, 0., 1.3), &asset_server, &mut commands);
 
-    light_shroom(Vec3(-7.8, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(-6.0, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(-4.2, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(-1.8, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(0.3, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(2.4, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(4.4, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(6.1, 0., -1.5), &asset_server, &mut commands);
-    light_shroom(Vec3(7.9, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(-7.8, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(-6.0, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(-4.2, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(-1.8, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(0.3, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(2.4, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(4.4, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(6.1, 0., -1.5), &asset_server, &mut commands);
+    // light_shroom(Vec3(7.9, 0., -1.5), &asset_server, &mut commands);
 
-    light_shroom(Vec3(-1.8, 0., 4.9), &asset_server, &mut commands);
-    light_shroom(Vec3(-4.4, 0., 5.0), &asset_server, &mut commands);
-    light_shroom(Vec3(0.3, 0., 5.0), &asset_server, &mut commands);
-    light_shroom(Vec3(2.4, 0., 4.8), &asset_server, &mut commands);
-    light_shroom(Vec3(4.4, 0., 5.2), &asset_server, &mut commands);
+    // light_shroom(Vec3(-1.8, 0., 4.9), &asset_server, &mut commands);
+    // light_shroom(Vec3(-4.4, 0., 5.0), &asset_server, &mut commands);
+    // light_shroom(Vec3(0.3, 0., 5.0), &asset_server, &mut commands);
+    // light_shroom(Vec3(2.4, 0., 4.8), &asset_server, &mut commands);
+    // light_shroom(Vec3(4.4, 0., 5.2), &asset_server, &mut commands);
 }
 
-fn light_shroom(translation: Vec3, asset_server: &AssetServer, commands: &mut Commands) {
+fn light_shroom(
+    base: Vec3,
+    stem: Vec3,
+    // (global position, local position)
+    cap: Vec<(Vec3, Vec3)>,
+    asset_server: &AssetServer,
+    commands: &mut Commands,
+) {
     let stem = FUNGUS_PURPLE_GLOW
         .rigid_body(RigidBody::Static)
-        .start(translation)
+        .start(base)
         .rigid_body(RigidBody::Dynamic)
         .gravity_override(Vec3::ZERO)
-        .to(translation + Vec3::Y * 0.5)
+        .to(stem)
         .gravity_override(Vec3::Y * 1.5)
         .one(Vec3::Y)
         .gravity_override(Vec3::ZERO)
         .run(asset_server, commands);
 
-    stem.to(translation + Vec3::new(0., 1., 0.5))
-        .gravity_override(Vec3::new(-0.5, 1., 1.5))
-        .mesh(fungus_a::CAP)
-        .gap_between_points(-0.5)
-        .alter(|_| {})
-        .one(Vec3::Y)
-        .run(asset_server, commands);
+    for (index, (global_translation, local_translation)) in cap.into_iter().enumerate() {
+        let to_alter = stem
+            .to(global_translation)
+            .gravity_override(local_translation)
+            .mesh(fungus_a::CAP)
+            .gap_between_points(-0.5);
 
-    stem.to(translation + Vec3::new(1.0, 0.9, 0.))
-        .gravity_override(Vec3::new(2.0, 1., 0.))
-        .mesh(fungus_a::CAP)
-        .gap_between_points(-0.5)
-        .alter(|_| {})
-        .one(Vec3::Y)
-        .run(asset_server, commands);
+        let to_alter = if index == 0 {
+            to_alter.alter(|commands| {
+                commands.insert((
+                    FadeLight,
+                    PointLight {
+                        //color: Color::srgb(0.937, 0.149, 0.941),
+                        color: Color::srgb(1., 0.5, 1.),
+                        intensity: 10000.,
+                        radius: 0.5,
+                        range: 5.,
+                        shadows_enabled: false,
+                        ..default()
+                    },
+                ));
+            })
+        } else {
+            to_alter.alter(|_| {})
+        };
 
-    stem.to(translation + Vec3::Y * 1.5)
-        .gravity_override(Vec3::new(0., 1.5, 0.))
-        .mesh(fungus_a::CAP)
-        .gap_between_points(-0.5)
-        .alter(|commands| {
-            commands.insert((FadeLight, PointLight {
-                //color: Color::srgb(0.937, 0.149, 0.941),
-                color: Color::srgb(1., 0.5, 1.),
-                intensity: 10000.,
-                radius: 0.5,
-                range: 5.,
-                shadows_enabled: false,
-                ..default()
-            }));
-        })
-        .one(Vec3::Y)
-        .run(asset_server, commands);
+        to_alter.one(Vec3::Y).run(asset_server, commands);
+    }
 }
 
 fn spawn_fungal_fallen(translation: Vec3, asset_server: &AssetServer, commands: &mut Commands) {
@@ -369,7 +455,9 @@ fn fungal_fallen(
         .get(on.loaded)
         .else_error("Could not get components on loaded entity.")?;
 
-    let area_transform = transforms.get(on.area).else_error("Could not get area's transform.")?;
+    let area_transform = transforms
+        .get(on.area)
+        .else_error("Could not get area's transform.")?;
 
     match name.as_str() {
         "left foot" | "right foot" => {
@@ -416,7 +504,8 @@ fn fungal_fallen(
 
             let offset_from_head = Vec3(0., 0.14, 0.);
             let head_translation = Vec3(0., 1.3026, 0.);
-            let anchor_translation = area_transform.translation + head_translation + offset_from_head;
+            let anchor_translation =
+                area_transform.translation + head_translation + offset_from_head;
 
             let secret_anchor = commands
                 .spawn((
@@ -593,7 +682,11 @@ impl Default for FadeState {
     }
 }
 
-fn light_fade(mut lights: Query<&mut PointLight, With<FadeLight>>, mut state: Local<FadeState>, time: Res<Time>) {
+fn light_fade(
+    mut lights: Query<&mut PointLight, With<FadeLight>>,
+    mut state: Local<FadeState>,
+    time: Res<Time>,
+) {
     state.time_remaining -= time.delta_secs();
 
     let light_change = match state.stage {
@@ -620,7 +713,7 @@ fn light_fade(mut lights: Query<&mut PointLight, With<FadeLight>>, mut state: Lo
     };
 
     state.intensity = (state.intensity + light_change * time.delta_secs()).clamp(0., 10000.);
-    
+
     lights.iter_mut().for_each(|mut light| {
         light.intensity = state.intensity;
     });
